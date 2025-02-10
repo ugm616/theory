@@ -88,8 +88,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const minutes = String(now.getUTCMinutes()).padStart(2, '0');
         const seconds = String(now.getUTCSeconds()).padStart(2, '0');
         
-        const formattedDateTime = `${day}-${month}-${year} ${hours}:${minutes}:${seconds}\n User: ${userLogin}`;
-        datetimeElement.innerHTML = formattedDateTime.replace('\n', '<br>');
+        const formattedDateTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds} | ${userLogin}`;
+        datetimeElement.textContent = formattedDateTime;
     }
 
     function loadReferenceNumber(db) {
@@ -124,8 +124,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             request.onsuccess = function(event) {
                 const locations = event.target.result;
-                const dataList = document.getElementById('locations');
-                dataList.innerHTML = '';
                 
                 if (locations && locations.length > 0) {
                     locations
@@ -140,7 +138,6 @@ document.addEventListener('DOMContentLoaded', function() {
                                     .toLowerCase()
                             );
                             option.setAttribute('data-details', JSON.stringify(location.fullDetails));
-                            dataList.appendChild(option);
                         });
                 }
             };
@@ -175,7 +172,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function handleLocationInput(event) {
         const input = event.target;
-        const datalist = document.getElementById('locations');
         const searchValue = input.value.toLowerCase();
         const resultsContainer = getOrCreateResultsContainer(input);
         
@@ -184,14 +180,22 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Get all matching options
-        const matches = Array.from(datalist.options).filter(option => {
-            const searchData = option.getAttribute('data-search');
-            return searchData.includes(searchValue);
-        });
+        // Get all matching options from IndexedDB
+        const db = request.result;
+        const transaction = db.transaction(["locations"], "readonly");
+        const store = transaction.objectStore("locations");
+        const getAllRequest = store.getAll();
 
-        // Display results
-        displayResults(matches, resultsContainer, input);
+        getAllRequest.onsuccess = function() {
+            const locations = getAllRequest.result;
+            const matches = locations.filter(location => 
+                Object.values(location.fullDetails)
+                    .some(value => value && value.toString().toLowerCase().includes(searchValue))
+            );
+
+            // Display results
+            displayResults(matches, resultsContainer, input);
+        };
     }
 
     function getOrCreateResultsContainer(input) {
@@ -218,20 +222,34 @@ document.addEventListener('DOMContentLoaded', function() {
         container.innerHTML = '';
         container.style.display = 'block';
 
-        matches.forEach((option, index) => {
+        matches.forEach((location, index) => {
             const div = document.createElement('div');
             div.className = 'search-result-item';
             
+            // Create formatted room information
+            const fullDetails = location.fullDetails;
+            const roomInfo = [
+                `Location: ${fullDetails.Location}`,
+                `Building: ${fullDetails.Building}`,
+                `Floor: ${fullDetails.Floor}`,
+                `Area: ${fullDetails.Area}`,
+                `Room: ${fullDetails.Room}`,
+                `Room Code: ${fullDetails.RoomCode}`,
+                `Bar Code: ${fullDetails.BarCode}`,
+                `Status: ${fullDetails.Status}`,
+                `Department: ${fullDetails.Department}`,
+                fullDetails.Notes ? `Notes: ${fullDetails.Notes}` : null
+            ].filter(Boolean).join(' | ');
+
             // Highlight matching text
-            const text = option.value;
-            const highlightedText = text.replace(new RegExp(searchValue, 'gi'), 
+            const highlightedText = roomInfo.replace(new RegExp(searchValue, 'gi'), 
                 match => `<span class="highlight">${match}</span>`
             );
             
             div.innerHTML = highlightedText;
             
             div.addEventListener('click', () => {
-                input.value = option.value;
+                input.value = location.name;
                 container.style.display = 'none';
             });
 
