@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const printTaskBtn = document.getElementById('printTaskBtn');
     const fromInput = document.getElementById('from');
     const toInput = document.getElementById('to');
+    const userLogin = 'ugm616'; // Store user login
 
     // Check if we're on the main page
     const isMainPage = window.location.pathname.endsWith('main.html');
@@ -87,7 +88,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const minutes = String(now.getUTCMinutes()).padStart(2, '0');
         const seconds = String(now.getUTCSeconds()).padStart(2, '0');
         
-        const formattedDateTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        const formattedDateTime = `Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): ${year}-${month}-${day} ${hours}:${minutes}:${seconds}\nCurrent User's Login: ${userLogin}`;
         datetimeElement.textContent = formattedDateTime;
     }
 
@@ -134,7 +135,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             option.value = location.name;
                             option.setAttribute('data-search', 
                                 Object.values(location.fullDetails)
-                                    .filter(val => val) // Remove empty values
+                                    .filter(val => val)
                                     .join(' ')
                                     .toLowerCase()
                             );
@@ -286,6 +287,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function handleNewTask() {
+        document.getElementById('name').value = '';
+        document.getElementById('extension').value = '';
         fromInput.value = '';
         toInput.value = '';
         document.getElementById('description').value = '';
