@@ -1,5 +1,94 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // ... previous initialization code remains the same ...
+    console.log('Page loaded: Initializing data from IndexedDB...');
+
+    const refNumberElement = document.getElementById('refNumber');
+    const datetimeElement = document.getElementById('datetime');
+    const newTaskBtn = document.getElementById('newTaskBtn');
+    const printTaskBtn = document.getElementById('printTaskBtn');
+    const fromInput = document.getElementById('from');
+    const toInput = document.getElementById('to');
+
+    // Initialize IndexedDB
+    const request = indexedDB.open("theoryDB", 1);
+
+    // Handle database upgrade needed
+    request.onupgradeneeded = function(event) {
+        console.log('Database upgrade needed...');
+        const db = event.target.result;
+
+        // Create object stores if they don't exist
+        if (!db.objectStoreNames.contains("reference")) {
+            db.createObjectStore("reference", { keyPath: "id" });
+        }
+
+        if (!db.objectStoreNames.contains("locations")) {
+            db.createObjectStore("locations", { autoIncrement: true });
+        }
+    };
+
+    request.onerror = function(event) {
+        console.error("Database error:", event.target.error);
+        // Redirect to initialization page if database error occurs
+        window.location.href = 'index.html';
+    };
+
+    request.onsuccess = function(event) {
+        console.log('Database opened successfully');
+        const db = event.target.result;
+
+        // Verify object stores exist
+        if (!db.objectStoreNames.contains("reference") || 
+            !db.objectStoreNames.contains("locations")) {
+            console.log('Required object stores missing, redirecting to initialization...');
+            window.location.href = 'index.html';
+            return;
+        }
+
+        try {
+            loadReferenceNumber(db);
+            loadLocations(db);
+            initializeDateTime();
+            setupEventListeners();
+        } catch (error) {
+            console.error('Error initializing data:', error);
+            window.location.href = 'index.html';
+        }
+    };
+
+    function initializeDateTime() {
+        updateDateTime();
+        setInterval(updateDateTime, 60000); // Update every minute
+    }
+
+    function updateDateTime() {
+        const now = new Date();
+        // Format date as YYYY-MM-DD HH:MM:SS in UTC
+        const timeStr = now.toISOString().replace('T', ' ').slice(0, 19);
+        datetimeElement.textContent = `TIME: ${timeStr}`;
+    }
+
+    function loadReferenceNumber(db) {
+        try {
+            const transaction = db.transaction(["reference"], "readonly");
+            const store = transaction.objectStore("reference");
+            
+            const request = store.get(1);
+            
+            request.onsuccess = function(event) {
+                const data = event.target.result;
+                if (data) {
+                    refNumberElement.textContent = `REF: ${data.reference}`;
+                }
+            };
+
+            request.onerror = function(event) {
+                console.error("Error loading reference:", event.target.error);
+            };
+        } catch (error) {
+            console.error('Error in loadReferenceNumber:', error);
+            throw error;
+        }
+    }
 
     function loadLocations(db) {
         try {
@@ -19,7 +108,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         .forEach(location => {
                             const option = document.createElement('option');
                             option.value = location.name;
-                            // Store all searchable text as a data attribute
                             option.setAttribute('data-search', 
                                 Object.values(location.fullDetails)
                                     .filter(val => val) // Remove empty values
@@ -43,6 +131,24 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error in loadLocations:', error);
             throw error;
         }
+    }
+
+    function setupEventListeners() {
+        newTaskBtn.addEventListener('click', handleNewTask);
+        printTaskBtn.addEventListener('click', handlePrintTask);
+        
+        fromInput.addEventListener('input', handleLocationInput);
+        toInput.addEventListener('input', handleLocationInput);
+
+        // Close results when clicking outside
+        document.addEventListener('click', function(e) {
+            const resultsContainers = document.querySelectorAll('.search-results');
+            resultsContainers.forEach(container => {
+                if (!container.contains(e.target) && !e.target.matches('#from, #to')) {
+                    container.style.display = 'none';
+                }
+            });
+        });
     }
 
     function handleLocationInput(event) {
@@ -158,7 +264,20 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Add keyboard navigation
+    function handleNewTask() {
+        fromInput.value = '';
+        toInput.value = '';
+        document.getElementById('description').value = '';
+        if (document.getElementById('category')) {
+            document.getElementById('category').selectedIndex = 0;
+        }
+    }
+
+    function handlePrintTask() {
+        window.print();
+    }
+
+    // Keyboard navigation
     document.addEventListener('keydown', function(e) {
         const activeInput = document.activeElement;
         if (!activeInput || !['from', 'to'].includes(activeInput.id)) return;
@@ -168,8 +287,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const items = container.querySelectorAll('.search-result-item');
         const selected = container.querySelector('.selected');
-        let nextSelect;
-
+        
         switch (e.key) {
             case 'ArrowDown':
                 e.preventDefault();
@@ -208,15 +326,5 @@ document.addEventListener('DOMContentLoaded', function() {
                 container.style.display = 'none';
                 break;
         }
-    });
-
-    // Close results when clicking outside
-    document.addEventListener('click', function(e) {
-        const resultsContainers = document.querySelectorAll('.search-results');
-        resultsContainers.forEach(container => {
-            if (!container.contains(e.target) && !e.target.matches('#from, #to')) {
-                container.style.display = 'none';
-            }
-        });
     });
 });
