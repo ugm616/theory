@@ -3,107 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UHCW Theory</title>
+    <title>Theory - Initialization</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
             background-color: #f0f0f0;
         }
-        .header {
-            background-color: white;
-            padding: 15px;
+        .container {
+            text-align: center;
+            padding: 2rem;
+            background: white;
             border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 400px;
+            width: 90%;
         }
-        .info-bar {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
         }
-        .row {
-            margin-bottom: 15px;
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
+        .status {
+            margin: 1rem 0;
+            color: #666;
         }
-        input[type="text"], select, textarea {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
+        #errorMessage {
+            color: #dc3545;
+            margin-top: 1rem;
+            display: none;
         }
-        .button-group {
-            margin-top: 20px;
-            display: flex;
-            gap: 10px;
+        #statusMessage {
+            color: #0d6efd;
+            margin-top: 1rem;
         }
-        button {
+        .retry-btn {
+            display: none;
+            margin-top: 1rem;
             padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-weight: bold;
+            transition: background-color 0.3s;
         }
-        #newTaskBtn {
-            background-color: #4CAF50;
-            color: white;
+        .retry-btn:hover {
+            background-color: #2980b9;
         }
-        #printTaskBtn {
-            background-color: #2196F3;
-            color: white;
+        .version-info {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            font-size: 12px;
+            color: #666;
         }
-        button:hover {
-            opacity: 0.9;
-        }
-        @media print {
-            .no-print {
-                display: none;
-            }
-            body {
-                margin: 0;
-                background-color: white;
-            }
-            .header {
-                box-shadow: none;
-            }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
         }
     </style>
+    <script src="initData.js"></script>
 </head>
 <body>
-    <div class="header">
-        <div class="info-bar">
-            <span id="refNumber">REF: Loading...</span>
-            <span id="datetime">Loading...</span>
-        </div>
+    <div class="container">
+        <h1>Theory System</h1>
+        <div class="loader"></div>
+        <p id="statusMessage">Initializing system...</p>
+        <p id="errorMessage"></p>
+        <button class="retry-btn" id="retryButton" onclick="window.location.reload()">Retry</button>
     </div>
-
-    <div class="content">
-        <div class="row">
-            <label for="from">From</label>
-            <input type="text" id="from" list="locations" autocomplete="off">
-        </div>
-        <div class="row">
-            <label for="to">To</label>
-            <input type="text" id="to" list="locations" autocomplete="off">
-        </div>
-        <datalist id="locations">
-            <!-- Will be populated by JavaScript -->
-        </datalist>
-        <div class="row">
-            <label for="description">Description</label>
-            <textarea id="description" rows="4"></textarea>
-        </div>
-        <div class="button-group no-print">
-            <button id="newTaskBtn">New Task</button>
-            <button id="printTaskBtn">Print Task</button>
-        </div>
+    <div class="version-info">
+        Version 1.0.0 | User: ugm616
     </div>
-
-    <script src="script.js"></script>
 </body>
 </html>
