@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const seconds = String(now.getUTCSeconds()).padStart(2, '0');
         
         const formattedDateTime = `Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): ${year}-${month}-${day} ${hours}:${minutes}:${seconds}\nCurrent User's Login: ${userLogin}`;
-        datetimeElement.textContent = formattedDateTime;
+        datetimeElement.innerHTML = formattedDateTime.replace('\n', '<br>');
     }
 
     function loadReferenceNumber(db) {
@@ -202,46 +202,6 @@ document.addEventListener('DOMContentLoaded', function() {
             container.id = `results-${input.id}`;
             container.className = 'search-results';
             input.parentNode.insertBefore(container, input.nextSibling);
-            
-            // Add styles if not already added
-            if (!document.getElementById('search-results-style')) {
-                const style = document.createElement('style');
-                style.id = 'search-results-style';
-                style.textContent = `
-                    .search-results {
-                        position: absolute;
-                        background: white;
-                        border: 1px solid #ddd;
-                        border-radius: 4px;
-                        max-height: 200px;
-                        overflow-y: auto;
-                        width: calc(100% - 20px);
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                        z-index: 1000;
-                        margin-top: 5px;
-                    }
-                    .search-result-item {
-                        padding: 8px 12px;
-                        cursor: pointer;
-                        border-bottom: 1px solid #eee;
-                    }
-                    .search-result-item:hover {
-                        background-color: #f0f0f0;
-                    }
-                    .search-result-item.selected {
-                        background-color: #e3f2fd;
-                    }
-                    .highlight {
-                        background-color: #fff3cd;
-                        padding: 0 2px;
-                        border-radius: 2px;
-                    }
-                    .row {
-                        position: relative;
-                    }
-                `;
-                document.head.appendChild(style);
-            }
         }
         
         return container;
