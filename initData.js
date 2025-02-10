@@ -64,6 +64,29 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 
+    function showError(message) {
+        const errorElement = document.getElementById('errorMessage');
+        if (errorElement) {
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+        const retryButton = document.getElementById('retryButton');
+        if (retryButton) {
+            retryButton.style.display = 'block';
+        }
+        const loader = document.querySelector('.loader');
+        if (loader) {
+            loader.style.display = 'none';
+        }
+    }
+
+    function updateStatus(message) {
+        const statusElement = document.getElementById('statusMessage');
+        if (statusElement) {
+            statusElement.textContent = message;
+        }
+    }
+
     function parseCSVLine(text) {
         const result = [];
         let startPos = 0;
@@ -109,4 +132,83 @@ document.addEventListener('DOMContentLoaded', function() {
             const location = {};
 
             headers.forEach((header, index) => {
-                location[header
+                location[header] = currentLine[index] || '';
+            });
+
+            results.push(location);
+        }
+
+        return results;
+    }
+
+    function initializeData(db) {
+        updateStatus("Loading location data...");
+
+        // Initialize reference data
+        const refTxn = db.transaction(["reference"], "readwrite");
+        const refStore = refTxn.objectStore("reference");
+        
+        const today = new Date();
+        const refNumber = `${today.getUTCFullYear()}${String(today.getUTCMonth() + 1).padStart(2, '0')}${String(today.getUTCDate()).padStart(2, '0')}-001`;
+        
+        refStore.put({
+            id: 1,
+            reference: refNumber
+        });
+
+        // Load and process CSV data
+        fetch('locations.csv')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to load locations.csv');
+                }
+                return response.text();
+            })
+            .then(csvData => {
+                updateStatus("Processing location data...");
+                const locations = parseCSV(csvData);
+                addLocationsToDb(db, locations);
+            })
+            .catch(error => {
+                console.error('Error loading CSV:', error);
+                showError("Failed to load location data. Please check if locations.csv exists and try again.");
+            });
+    }
+
+    function addLocationsToDb(db, locations) {
+        updateStatus("Storing location data...");
+        const locTxn = db.transaction(["locations"], "readwrite");
+        const locStore = locTxn.objectStore("locations");
+
+        let completed = 0;
+        const total = locations.length;
+        
+        locations.forEach(function(location) {
+            const locationName = `${location.Location}, ${location.Building} - ${location.Room}`;
+            const request = locStore.add({
+                name: locationName,
+                fullDetails: location
+            });
+            
+            request.onsuccess = function() {
+                completed++;
+                updateStatus(`Processing locations... (${completed}/${total})`);
+                
+                if (completed === total) {
+                    console.log("Database initialization complete");
+                    window.location.href = 'main.html';
+                }
+            };
+            
+            request.onerror = function(event) {
+                console.error("Error adding location:", location, event.target.error);
+                showError("Error storing location data. Please try again.");
+            };
+        });
+
+        locTxn.onerror = function(event) {
+            console.error("Transaction error:", event.target.error);
+            showError("Database transaction failed. Please try again.");
+        };
+    }
+});
