@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 completed++;
                 if (completed === locations.length) {
                     console.log("Database initialization complete");
-                    window.location.href = 'index.html';
+                    window.location.href = 'main.html';
                 }
             };
             
