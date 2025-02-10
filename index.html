@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theory</title>
+    <style>
+        body {
+            font-family: Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 20px;
+            background-color: #fff;
+            border-bottom: 1px solid #ccc;
+        }
+        header img {
+            height: 50px;
+        }
+        header .info {
+            text-align: right;
+        }
+        .buttons {
+            display: flex;
+            justify-content: flex-start;
+            padding: 10px 20px;
+            background-color: #fff;
+            border-bottom: 1px solid #ccc;
+        }
+        .buttons button {
+            margin-right: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        .content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+        .row {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        .row label {
+            flex: 1;
+            margin-right: 10px;
+        }
+        .row input, .row select, .row textarea {
+            flex: 2;
+            padding: 10px;
+            font-size: 16px;
+        }
+        .row textarea {
+            resize: vertical;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <img src="logo.png" alt="Logo">
+        <div class="info">
+            <p id="refNumber">REF: A12345</p>
+            <p id="datetime">TIME: 08:51 | DATE: 2025-02-10</p>
+        </div>
+    </header>
+    <div class="buttons">
+        <button id="newTaskBtn">New Task</button>
+        <button id="printTaskBtn">Print Task</button>
+    </div>
+    <div class="content">
+        <div class="row">
+            <label for="from">From</label>
+            <input type="text" id="from" list="locations">
+        </div>
+        <div class="row">
+            <label for="to">To</label>
+            <input type="text" id="to" list="locations">
+        </div>
+        <div class="row">
+            <label for="category">Category</label>
+            <select id="category">
+                <!-- Options will be added here -->
+            </select>
+        </div>
+        <div class="row">
+            <label for="description">Description</label>
+            <textarea id="description" rows="5"></textarea>
+        </div>
+    </div>
+    <datalist id="locations">
+        <!-- Options will be populated from IndexedDB -->
+    </datalist>
+    <script src="script.js"></script>
+</body>
+</html>
