@@ -7,13 +7,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const printTaskBtn = document.getElementById('printTaskBtn');
     const fromInput = document.getElementById('from');
     const toInput = document.getElementById('to');
+    const categoryInput = document.getElementById('category');
     const userLogin = 'ugm616'; // Store user login
 
     // Check if we're on the main page
     const isMainPage = window.location.pathname.endsWith('main.html');
 
     // Initialize IndexedDB
-    const request = indexedDB.open("theoryDB", 1);
+    const request = indexedDB.open("theoryDB", 2); // Upgraded version number for new store
 
     // Handle database upgrade needed
     request.onupgradeneeded = function(event) {
@@ -27,6 +28,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (!db.objectStoreNames.contains("locations")) {
             db.createObjectStore("locations", { autoIncrement: true });
+        }
+
+        if (!db.objectStoreNames.contains("disciplines")) {
+            db.createObjectStore("disciplines", { autoIncrement: true });
         }
     };
 
@@ -43,17 +48,26 @@ document.addEventListener('DOMContentLoaded', function() {
         const db = event.target.result;
 
         // Verify object stores exist and contain data
-        const transaction = db.transaction(["locations"], "readonly");
-        const store = transaction.objectStore("locations");
-        const countRequest = store.count();
+        const transaction = db.transaction(["locations", "disciplines"], "readonly");
+        const locStore = transaction.objectStore("locations");
+        const discStore = transaction.objectStore("disciplines");
+        const locCountRequest = locStore.count();
+        const discCountRequest = discStore.count();
 
-        countRequest.onsuccess = function() {
-            if (countRequest.result === 0 && isMainPage) {
+        Promise.all([
+            new Promise(resolve => {
+                locCountRequest.onsuccess = () => resolve(locCountRequest.result);
+            }),
+            new Promise(resolve => {
+                discCountRequest.onsuccess = () => resolve(discCountRequest.result);
+            })
+        ]).then(([locCount, discCount]) => {
+            if ((locCount === 0 || discCount === 0) && isMainPage) {
                 // No data found and we're on main page, redirect to init
                 console.log('No data found, redirecting to initialization...');
                 window.location.href = 'index.html';
                 return;
-            } else if (countRequest.result > 0 && !isMainPage) {
+            } else if (locCount > 0 && !isMainPage) {
                 // Data exists and we're on init page, redirect to main
                 console.log('Data found, redirecting to main...');
                 window.location.href = 'main.html';
@@ -65,13 +79,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 try {
                     loadReferenceNumber(db);
                     loadLocations(db);
+                    loadDisciplines(db);
                     initializeDateTime();
                     setupEventListeners();
                 } catch (error) {
                     console.error('Error initializing data:', error);
                 }
             }
-        };
+        });
     };
 
     function initializeDateTime() {
@@ -88,8 +103,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const minutes = String(now.getUTCMinutes()).padStart(2, '0');
         const seconds = String(now.getUTCSeconds()).padStart(2, '0');
         
-        const formattedDateTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds} | ${userLogin}`;
-        datetimeElement.textContent = formattedDateTime;
+        const formattedDateTime = `Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): ${year}-${month}-${day} ${hours}:${minutes}:${seconds}\nCurrent User's Login: ${userLogin}\n`;
+        datetimeElement.innerHTML = formattedDateTime.replace(/\n/g, '<br>');
     }
 
     function loadReferenceNumber(db) {
@@ -152,18 +167,56 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function loadDisciplines(db) {
+        try {
+            const transaction = db.transaction(["disciplines"], "readonly");
+            const store = transaction.objectStore("disciplines");
+            
+            const request = store.getAll();
+            
+            request.onsuccess = function(event) {
+                const disciplines = event.target.result;
+                
+                if (disciplines && disciplines.length > 0) {
+                    disciplines
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .forEach(discipline => {
+                            const option = document.createElement('option');
+                            option.value = discipline.name;
+                            option.setAttribute('data-search', 
+                                Object.values(discipline.fullDetails)
+                                    .filter(val => val)
+                                    .join(' ')
+                                    .toLowerCase()
+                            );
+                            option.setAttribute('data-details', JSON.stringify(discipline.fullDetails));
+                        });
+                }
+            };
+
+            request.onerror = function(event) {
+                console.error("Error loading disciplines:", event.target.error);
+                throw event.target.error;
+            };
+        } catch (error) {
+            console.error('Error in loadDisciplines:', error);
+            throw error;
+        }
+    }
+
     function setupEventListeners() {
         newTaskBtn.addEventListener('click', handleNewTask);
         printTaskBtn.addEventListener('click', handlePrintTask);
         
         fromInput.addEventListener('input', handleLocationInput);
         toInput.addEventListener('input', handleLocationInput);
+        categoryInput.addEventListener('input', handleDisciplineInput);
 
         // Close results when clicking outside
         document.addEventListener('click', function(e) {
             const resultsContainers = document.querySelectorAll('.search-results');
             resultsContainers.forEach(container => {
-                if (!container.contains(e.target) && !e.target.matches('#from, #to')) {
+                if (!container.contains(e.target) && !e.target.matches('#from, #to, #category')) {
                     container.style.display = 'none';
                 }
             });
@@ -198,6 +251,34 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 
+    function handleDisciplineInput(event) {
+        const input = event.target;
+        const searchValue = input.value.toLowerCase();
+        const resultsContainer = getOrCreateResultsContainer(input);
+        
+        if (!searchValue) {
+            resultsContainer.style.display = 'none';
+            return;
+        }
+
+        // Get all matching options from IndexedDB
+        const db = request.result;
+        const transaction = db.transaction(["disciplines"], "readonly");
+        const store = transaction.objectStore("disciplines");
+        const getAllRequest = store.getAll();
+
+        getAllRequest.onsuccess = function() {
+            const disciplines = getAllRequest.result;
+            const matches = disciplines.filter(discipline => 
+                Object.values(discipline.fullDetails)
+                    .some(value => value && value.toString().toLowerCase().includes(searchValue))
+            );
+
+            // Display results
+            displayResults(matches, resultsContainer, input);
+        };
+    }
+
     function getOrCreateResultsContainer(input) {
         let container = document.getElementById(`results-${input.id}`);
         
@@ -222,34 +303,26 @@ document.addEventListener('DOMContentLoaded', function() {
         container.innerHTML = '';
         container.style.display = 'block';
 
-        matches.forEach((location, index) => {
+        matches.forEach((item, index) => {
             const div = document.createElement('div');
             div.className = 'search-result-item';
             
-            // Create formatted room information
-            const fullDetails = location.fullDetails;
-            const roomInfo = [
-                `Location: ${fullDetails.Location}`,
-                `Building: ${fullDetails.Building}`,
-                `Floor: ${fullDetails.Floor}`,
-                `Area: ${fullDetails.Area}`,
-                `Room: ${fullDetails.Room}`,
-                `Room Code: ${fullDetails.RoomCode}`,
-                `Bar Code: ${fullDetails.BarCode}`,
-                `Status: ${fullDetails.Status}`,
-                `Department: ${fullDetails.Department}`,
-                fullDetails.Notes ? `Notes: ${fullDetails.Notes}` : null
-            ].filter(Boolean).join(' | ');
+            // Create formatted information
+            const fullDetails = item.fullDetails;
+            const info = Object.entries(fullDetails)
+                .filter(([_, value]) => value)
+                .map(([key, value]) => `${key}: ${value}`)
+                .join(' | ');
 
             // Highlight matching text
-            const highlightedText = roomInfo.replace(new RegExp(searchValue, 'gi'), 
+            const highlightedText = info.replace(new RegExp(searchValue, 'gi'), 
                 match => `<span class="highlight">${match}</span>`
             );
             
             div.innerHTML = highlightedText;
             
             div.addEventListener('click', () => {
-                input.value = location.name;
+                input.value = item.name;
                 container.style.display = 'none';
             });
 
@@ -269,10 +342,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('extension').value = '';
         fromInput.value = '';
         toInput.value = '';
+        categoryInput.value = '';
         document.getElementById('description').value = '';
-        if (document.getElementById('category')) {
-            document.getElementById('category').selectedIndex = 0;
-        }
     }
 
     function handlePrintTask() {
@@ -282,7 +353,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Keyboard navigation
     document.addEventListener('keydown', function(e) {
         const activeInput = document.activeElement;
-        if (!activeInput || !['from', 'to'].includes(activeInput.id)) return;
+        if (!activeInput || !['from', 'to', 'category'].includes(activeInput.id)) return;
 
         const container = document.getElementById(`results-${activeInput.id}`);
         if (!container || container.style.display === 'none') return;
