@@ -8,6 +8,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const fromInput = document.getElementById('from');
     const toInput = document.getElementById('to');
 
+    // Check if we're on the main page
+    const isMainPage = window.location.pathname.endsWith('main.html');
+
     // Initialize IndexedDB
     const request = indexedDB.open("theoryDB", 1);
 
@@ -28,43 +31,64 @@ document.addEventListener('DOMContentLoaded', function() {
 
     request.onerror = function(event) {
         console.error("Database error:", event.target.error);
-        // Redirect to initialization page if database error occurs
-        window.location.href = 'index.html';
+        // Only redirect if we're on the main page
+        if (isMainPage) {
+            window.location.href = 'index.html';
+        }
     };
 
     request.onsuccess = function(event) {
         console.log('Database opened successfully');
         const db = event.target.result;
 
-        // Verify object stores exist
-        if (!db.objectStoreNames.contains("reference") || 
-            !db.objectStoreNames.contains("locations")) {
-            console.log('Required object stores missing, redirecting to initialization...');
-            window.location.href = 'index.html';
-            return;
-        }
+        // Verify object stores exist and contain data
+        const transaction = db.transaction(["locations"], "readonly");
+        const store = transaction.objectStore("locations");
+        const countRequest = store.count();
 
-        try {
-            loadReferenceNumber(db);
-            loadLocations(db);
-            initializeDateTime();
-            setupEventListeners();
-        } catch (error) {
-            console.error('Error initializing data:', error);
-            window.location.href = 'index.html';
-        }
+        countRequest.onsuccess = function() {
+            if (countRequest.result === 0 && isMainPage) {
+                // No data found and we're on main page, redirect to init
+                console.log('No data found, redirecting to initialization...');
+                window.location.href = 'index.html';
+                return;
+            } else if (countRequest.result > 0 && !isMainPage) {
+                // Data exists and we're on init page, redirect to main
+                console.log('Data found, redirecting to main...');
+                window.location.href = 'main.html';
+                return;
+            }
+
+            // Continue with normal initialization if we're on the right page
+            if (isMainPage) {
+                try {
+                    loadReferenceNumber(db);
+                    loadLocations(db);
+                    initializeDateTime();
+                    setupEventListeners();
+                } catch (error) {
+                    console.error('Error initializing data:', error);
+                }
+            }
+        };
     };
 
     function initializeDateTime() {
         updateDateTime();
-        setInterval(updateDateTime, 60000); // Update every minute
+        setInterval(updateDateTime, 1000); // Update every second
     }
 
     function updateDateTime() {
         const now = new Date();
-        // Format date as YYYY-MM-DD HH:MM:SS in UTC
-        const timeStr = now.toISOString().replace('T', ' ').slice(0, 19);
-        datetimeElement.textContent = `TIME: ${timeStr}`;
+        const year = now.getUTCFullYear();
+        const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(now.getUTCDate()).padStart(2, '0');
+        const hours = String(now.getUTCHours()).padStart(2, '0');
+        const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+        const seconds = String(now.getUTCSeconds()).padStart(2, '0');
+        
+        const formattedDateTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        datetimeElement.textContent = formattedDateTime;
     }
 
     function loadReferenceNumber(db) {
@@ -117,9 +141,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             option.setAttribute('data-details', JSON.stringify(location.fullDetails));
                             dataList.appendChild(option);
                         });
-                } else {
-                    console.log('No locations found, redirecting to initialization...');
-                    window.location.href = 'index.html';
                 }
             };
 
