@@ -159,19 +159,18 @@
         }
 
         .search-results {
-            position: absolute;
+            position: fixed;
             background: var(--surface-color);
             border: 1px solid var(--border-color);
             border-radius: 4px;
-            max-height: 300px;
+            max-height: 200px;
             overflow-y: auto;
-            width: 100%;
-            box-shadow: 0 2px 4px var(--shadow-color);
+            width: auto;
+            min-width: 200px;
+            box-shadow: 0 2px 8px var(--shadow-color);
             z-index: 1000;
             margin-top: 2px;
             font-size: 12px;
-            left: 0;
-            top: 100%;
         }
 
         .search-result-item {
@@ -180,14 +179,16 @@
             border-bottom: 1px solid var(--border-color);
             white-space: normal;
             line-height: 1.4;
+            transition: background-color 0.2s;
         }
 
-        .search-result-item:hover {
-            background-color: var(--hover-color);
-        }
-
+        .search-result-item:hover,
         .search-result-item.selected {
             background-color: var(--hover-color);
+        }
+
+        .search-result-item:last-child {
+            border-bottom: none;
         }
 
         .highlight {
@@ -238,34 +239,34 @@
         </div>
 
         <div class="location-section">
-    <div class="input-group">
-        <label for="fromBuilding">From:</label>
-        <input type="text" id="fromBuilding" autocomplete="off" placeholder="Building">
-    </div>
-    <div class="input-group">
-        <label for="fromDepartment">Dept:</label>
-        <input type="text" id="fromDepartment" autocomplete="off" placeholder="Department">
-    </div>
-    <div class="input-group">
-        <label for="fromLocation">Room:</label>
-        <input type="text" id="fromLocation" autocomplete="off" placeholder="Location">
-    </div>
-</div>
+            <div class="input-group">
+                <label for="fromBuilding">From:</label>
+                <input type="text" id="fromBuilding" autocomplete="off" placeholder="Building">
+            </div>
+            <div class="input-group">
+                <label for="fromDepartment">Dept:</label>
+                <input type="text" id="fromDepartment" autocomplete="off" placeholder="Department">
+            </div>
+            <div class="input-group">
+                <label for="fromLocation">Room:</label>
+                <input type="text" id="fromLocation" autocomplete="off" placeholder="Location">
+            </div>
+        </div>
 
-<div class="location-section">
-    <div class="input-group">
-        <label for="toBuilding">To:</label>
-        <input type="text" id="toBuilding" autocomplete="off" placeholder="Building">
-    </div>
-    <div class="input-group">
-        <label for="toDepartment">Dept:</label>
-        <input type="text" id="toDepartment" autocomplete="off" placeholder="Department">
-    </div>
-    <div class="input-group">
-        <label for="toLocation">Room:</label>
-        <input type="text" id="toLocation" autocomplete="off" placeholder="Location">
-    </div>
-</div>
+        <div class="location-section">
+            <div class="input-group">
+                <label for="toBuilding">To:</label>
+                <input type="text" id="toBuilding" autocomplete="off" placeholder="Building">
+            </div>
+            <div class="input-group">
+                <label for="toDepartment">Dept:</label>
+                <input type="text" id="toDepartment" autocomplete="off" placeholder="Department">
+            </div>
+            <div class="input-group">
+                <label for="toLocation">Room:</label>
+                <input type="text" id="toLocation" autocomplete="off" placeholder="Location">
+            </div>
+        </div>
 
         <div class="row">
             <label for="category">Category:</label>
