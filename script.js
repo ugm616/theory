@@ -517,4 +517,4 @@ document.addEventListener('DOMContentLoaded', function() {
                 break;
         }
     });
-});
+}); // End of DOMContentLoaded event listener
