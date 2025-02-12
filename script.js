@@ -392,7 +392,7 @@ document.addEventListener('DOMContentLoaded', function() {
         window.print();
     }
 
-    // Keyboard navigation for search results
+        // Keyboard navigation for search results
     document.addEventListener('keydown', function(e) {
         const activeInput = document.activeElement;
         if (!activeInput || !activeInput.matches('input[type="text"]')) return;
@@ -421,4 +421,61 @@ document.addEventListener('DOMContentLoaded', function() {
 
             case 'ArrowUp':
                 e.preventDefault();
-                if (selected)
+                if (selected) {
+                    const prev = Array.from(items).indexOf(selected) - 1;
+                    if (prev >= 0) {
+                        selected.classList.remove('selected');
+                        items[prev].classList.add('selected');
+                        items[prev].scrollIntoView({ block: 'nearest' });
+                    }
+                }
+                break;
+
+            case 'Enter':
+                if (selected) {
+                    const prefix = activeInput.id.startsWith('from') ? 'from' : 'to';
+                    activeInput.value = selected.textContent;
+
+                    if (activeInput.id.includes('Location')) {
+                        const foundLocation = window.locationData.find(loc => 
+                            `${loc.fullDetails.RoomCode} - ${loc.fullDetails.Description}` === selected.textContent
+                        );
+
+                        if (foundLocation) {
+                            const buildingInput = elements[`${prefix}Building`];
+                            const deptInput = elements[`${prefix}Department`];
+
+                            if (!buildingInput.value) {
+                                buildingInput.value = `${foundLocation.fullDetails.Site} - ${foundLocation.fullDetails.Building}`;
+                            }
+                            if (!deptInput.value) {
+                                deptInput.value = foundLocation.fullDetails.Department;
+                            }
+                        }
+                    }
+
+                    resultsContainer.style.display = 'none';
+                }
+                break;
+
+            case 'Escape':
+                resultsContainer.style.display = 'none';
+                break;
+
+            case 'Tab':
+                if (selected) {
+                    e.preventDefault();
+                    activeInput.value = selected.textContent;
+                    resultsContainer.style.display = 'none';
+
+                    // Find next input field
+                    const inputs = Array.from(document.querySelectorAll('input[type="text"], textarea'));
+                    const currentIndex = inputs.indexOf(activeInput);
+                    if (currentIndex < inputs.length - 1) {
+                        inputs[currentIndex + 1].focus();
+                    }
+                }
+                break;
+        }
+    });
+});
