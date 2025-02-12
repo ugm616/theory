@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (missingElements.length > 0) {
         console.error('Missing DOM elements:', missingElements);
-        return;
+        return; // Exit if required elements are missing
     }
 
     // Initialize IndexedDB
@@ -39,9 +39,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!db.objectStoreNames.contains("reference")) {
             db.createObjectStore("reference", { keyPath: "id" });
         }
+
         if (!db.objectStoreNames.contains("locations")) {
             db.createObjectStore("locations", { autoIncrement: true });
         }
+
         if (!db.objectStoreNames.contains("disciplines")) {
             db.createObjectStore("disciplines", { autoIncrement: true });
         }
@@ -61,13 +63,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const transaction = db.transaction(["locations", "disciplines"], "readonly");
         const locStore = transaction.objectStore("locations");
         const discStore = transaction.objectStore("disciplines");
-        
+        const locCountRequest = locStore.count();
+        const discCountRequest = discStore.count();
+
         Promise.all([
             new Promise(resolve => {
-                locStore.count().onsuccess = e => resolve(e.target.result);
+                locCountRequest.onsuccess = () => resolve(locCountRequest.result);
             }),
             new Promise(resolve => {
-                discStore.count().onsuccess = e => resolve(e.target.result);
+                discCountRequest.onsuccess = () => resolve(discCountRequest.result);
             })
         ]).then(([locCount, discCount]) => {
             if (locCount > 0 && discCount > 0) {
@@ -88,10 +92,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateDateTime() {
-        elements.datetime.innerHTML = 'Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): 2025-02-12 18:57:36<br>Current User\'s Login: ugm616';
+        elements.datetime.innerHTML = 'Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): 2025-02-12 19:42:23<br>Current User\'s Login: ugm616';
     }
 
-    // [Previous database-related functions remain unchanged]
     function loadReferenceNumber(db) {
         try {
             const transaction = db.transaction(["reference"], "readonly");
@@ -149,76 +152,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function removeExistingDropdown(input) {
-        const existingDropdown = document.getElementById(`results-${input.id}`);
-        if (existingDropdown) {
-            existingDropdown.remove();
-        }
-    }
-
-    function createAndShowDropdown(matches, input) {
-        removeExistingDropdown(input);
-        
-        const inputGroup = input.closest('.input-group');
-        if (!inputGroup) return;
-
-        const dropdown = document.createElement('div');
-        dropdown.id = `results-${input.id}`;
-        dropdown.className = 'search-results';
-        
-        matches.forEach((match, index) => {
-            const item = document.createElement('div');
-            item.className = 'search-result-item';
-            item.textContent = match.text;
-            if (index === 0) item.classList.add('selected');
-            
-            item.addEventListener('click', (e) => {
-                e.stopPropagation();
-                selectDropdownItem(match, input);
-            });
-            
-            item.addEventListener('mouseover', () => {
-                dropdown.querySelector('.selected')?.classList.remove('selected');
-                item.classList.add('selected');
-            });
-            
-            dropdown.appendChild(item);
-        });
-
-        inputGroup.appendChild(dropdown);
-
-        const dropdownRect = dropdown.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-        
-        if (dropdownRect.bottom > viewportHeight) {
-            dropdown.style.bottom = '100%';
-            dropdown.style.top = 'auto';
-            dropdown.style.marginTop = '0';
-            dropdown.style.marginBottom = '2px';
-        }
-    }
-
-    function selectDropdownItem(match, input) {
-        input.value = match.text;
-        
-        if (match.location) {
-            const prefix = input.id.startsWith('from') ? 'from' : 'to';
-            const buildingInput = elements[`${prefix}Building`];
-            const deptInput = elements[`${prefix}Department`];
-            
-            if (!buildingInput.value) {
-                buildingInput.value = `${match.location.Site} - ${match.location.Building}`;
-            }
-            if (!deptInput.value) {
-                deptInput.value = match.location.Department;
-            }
-        }
-        
-        removeExistingDropdown(input);
-        input.focus();
-    }
-
     function setupEventListeners() {
+        // Set up input event listeners for search functionality
         elements.fromBuilding.addEventListener('input', (e) => handleSearch(e, 'building'));
         elements.fromDepartment.addEventListener('input', (e) => handleSearch(e, 'department'));
         elements.fromLocation.addEventListener('input', (e) => handleSearch(e, 'location'));
@@ -227,75 +162,53 @@ document.addEventListener('DOMContentLoaded', function() {
         elements.toLocation.addEventListener('input', (e) => handleSearch(e, 'location'));
         elements.category.addEventListener('input', (e) => handleSearch(e, 'category'));
 
+        // Set up button event listeners
         elements.newTaskBtn.addEventListener('click', handleNewTask);
         elements.printTaskBtn.addEventListener('click', handlePrintTask);
 
+        // Initialize datetime
         updateDateTime();
         setInterval(updateDateTime, 1000);
 
+        // Close dropdowns when clicking outside
         document.addEventListener('click', function(e) {
-            if (!e.target.matches('input[type="text"]') && !e.target.closest('.search-results')) {
-                document.querySelectorAll('.search-results').forEach(dropdown => {
-                    removeExistingDropdown(dropdown);
-                });
-            }
-        });
-
-        window.addEventListener('resize', debounce(function() {
-            const activeDropdowns = document.querySelectorAll('.search-results');
-            activeDropdowns.forEach(dropdown => {
-                const input = document.getElementById(dropdown.id.replace('results-', ''));
-                if (input) {
-                    const matches = Array.from(dropdown.children).map(child => ({
-                        text: child.textContent,
-                        value: child.dataset.value
-                    }));
-                    createAndShowDropdown(matches, input);
+            console.log('Document clicked, checking if should close dropdowns');
+            const dropdowns = document.querySelectorAll('.search-results');
+            dropdowns.forEach(dropdown => {
+                if (!dropdown.contains(e.target) && e.target.tagName !== 'INPUT') {
+                    console.log('Closing dropdown:', dropdown.id);
+                    dropdown.style.display = 'none';
                 }
             });
-        }, 150));
-    }
-
-    function debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
+        });
     }
 
     function handleSearch(event, type) {
-    console.log('Search triggered:', {
-        type: type,
-        value: event.target.value,
-        hasLocationData: !!window.locationData,
-        hasDisciplineData: !!window.disciplineData
-    });
-    
-    const input = event.target;
-    const searchTerm = input.value.toLowerCase();
+        console.log('Search triggered:', {
+            type: type,
+            value: event.target.value,
+            hasLocationData: !!window.locationData,
+            hasDisciplineData: !!window.disciplineData
+        });
+        
+        const input = event.target;
+        const searchTerm = input.value.toLowerCase();
         
         if (!searchTerm) {
-            removeExistingDropdown(input);
+            console.log('Empty search term - removing dropdown');
+            hideDropdown(input);
             return;
         }
 
         let matches = [];
         
         if (type === 'category' && window.disciplineData) {
-            matches = window.disciplineData
-                .filter(d => 
-                    d.fullName.toLowerCase().includes(searchTerm) ||
-                    d.initials.toLowerCase().includes(searchTerm)
-                )
-                .map(d => ({ text: d.fullName }));
+            matches = window.disciplineData.filter(d => 
+                d.fullName.toLowerCase().includes(searchTerm) ||
+                d.initials.toLowerCase().includes(searchTerm)
+            );
+            console.log('Category matches found:', matches.length);
         } else if (window.locationData) {
-            const prefix = input.id.startsWith('from') ? 'from' : 'to';
-            
             switch (type) {
                 case 'building':
                     const uniqueBuildings = new Set();
@@ -306,49 +219,115 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     });
                     matches = Array.from(uniqueBuildings).map(b => ({ text: b }));
+                    console.log('Building matches found:', matches.length);
                     break;
 
                 case 'department':
-                    const selectedBuilding = elements[`${prefix}Building`].value;
                     const uniqueDepts = new Set();
                     window.locationData.forEach(location => {
-                        const buildingName = `${location.Site} - ${location.Building}`;
                         if (location.Department && 
-                            location.Department.toLowerCase().includes(searchTerm) &&
-                            (!selectedBuilding || buildingName === selectedBuilding)) {
+                            location.Department.toLowerCase().includes(searchTerm)) {
                             uniqueDepts.add(location.Department);
                         }
                     });
                     matches = Array.from(uniqueDepts).map(d => ({ text: d }));
+                    console.log('Department matches found:', matches.length);
                     break;
 
                 case 'location':
+                    const prefix = input.id.startsWith('from') ? 'from' : 'to';
                     const buildingValue = elements[`${prefix}Building`].value;
                     const deptValue = elements[`${prefix}Department`].value;
-                    
-                    matches = window.locationData
-                        .filter(location => {
-                            const locationText = `${location["Room Number"]} - ${location.Description}`;
-                            const buildingMatch = !buildingValue || 
-                                `${location.Site} - ${location.Building}` === buildingValue;
-                            const deptMatch = !deptValue || 
-                                location.Department === deptValue;
-                            
-                            return buildingMatch && deptMatch && 
-                                   locationText.toLowerCase().includes(searchTerm);
-                        })
-                        .map(l => ({
-                            text: `${l["Room Number"]} - ${l.Description}`,
-                            location: l
-                        }));
+
+                    matches = window.locationData.filter(location => {
+                        const locationText = `${location["Room Number"]} - ${location.Description}`;
+                        const buildingMatch = !buildingValue || 
+                            `${location.Site} - ${location.Building}` === buildingValue;
+                        const deptMatch = !deptValue || 
+                            location.Department === deptValue;
+                        
+                        return buildingMatch && deptMatch && 
+                               locationText.toLowerCase().includes(searchTerm);
+                    }).map(l => ({
+                        text: `${l["Room Number"]} - ${l.Description}`,
+                        location: l
+                    }));
+                    console.log('Location matches found:', matches.length);
                     break;
             }
         }
 
-        if (matches.length > 0) {
-            createAndShowDropdown(matches, input);
+        console.log('Total matches found:', matches.length);
+        showResults(matches, input);
+    }
+
+    function showResults(matches, input) {
+        console.log('showResults called:', {
+            matchesLength: matches.length,
+            inputId: input.id
+        });
+        
+        let dropdown = document.getElementById(`results-${input.id}`);
+        if (!dropdown) {
+            console.log('Creating new dropdown for input:', input.id);
+            dropdown = document.createElement('div');
+            dropdown.id = `results-${input.id}`;
+            dropdown.className = 'search-results';
+            
+            const inputParent = input.parentNode;
+            console.log('Input parent node:', inputParent);
+            
+            // Force the parent to have relative positioning
+            inputParent.style.position = 'relative';
+            
+            inputParent.appendChild(dropdown);
+            console.log('Dropdown appended to parent');
+        }
+
+        if (!matches.length) {
+            console.log('No matches, hiding dropdown');
+            hideDropdown(input);
+            return;
+        }
+
+        console.log('Populating dropdown with matches');
+        dropdown.innerHTML = '';
+        matches.forEach(match => {
+            const div = document.createElement('div');
+            div.className = 'search-result-item';
+            div.textContent = match.text;
+            div.addEventListener('click', () => {
+                console.log('Result item clicked:', match.text);
+                input.value = match.text;
+                if (match.location) {
+                    const prefix = input.id.startsWith('from') ? 'from' : 'to';
+                    elements[`${prefix}Building`].value = `${match.location.Site} - ${match.location.Building}`;
+                    elements[`${prefix}Department`].value = match.location.Department;
+                }
+                hideDropdown(input);
+            });
+            dropdown.appendChild(div);
+        });
+        
+        // Ensure dropdown has necessary styles for visibility
+        dropdown.style.position = 'absolute';
+        dropdown.style.top = '100%';
+        dropdown.style.left = '0';
+        dropdown.style.width = '100%';
+        dropdown.style.zIndex = '1000';
+        dropdown.style.display = 'block';
+        
+        console.log('Dropdown should now be visible');
+    }
+
+    function hideDropdown(input) {
+        console.log('Hiding dropdown for input:', input.id);
+        const dropdown = document.getElementById(`results-${input.id}`);
+        if (dropdown) {
+            dropdown.style.display = 'none';
+            console.log('Dropdown hidden');
         } else {
-            removeExistingDropdown(input);
+            console.log('No dropdown found to hide');
         }
     }
 
@@ -365,13 +344,13 @@ document.addEventListener('DOMContentLoaded', function() {
         window.print();
     }
 
-    // Keyboard navigation
+    // Keyboard navigation for search results
     document.addEventListener('keydown', function(e) {
         const activeInput = document.activeElement;
         if (!activeInput || !activeInput.matches('input[type="text"]')) return;
 
         const resultsContainer = document.getElementById(`results-${activeInput.id}`);
-        if (!resultsContainer) return;
+        if (!resultsContainer || resultsContainer.style.display === 'none') return;
 
         const items = resultsContainer.querySelectorAll('.search-result-item');
         const selected = resultsContainer.querySelector('.selected');
@@ -406,35 +385,42 @@ document.addEventListener('DOMContentLoaded', function() {
 
             case 'Enter':
                 if (selected) {
-                    e.preventDefault();
-                    const matchText = selected.textContent;
-                    const matchLocation = window.locationData.find(loc => 
-                        `${loc["Room Number"]} - ${loc.Description}` === matchText
-                    );
-                    selectDropdownItem(
-                        { text: matchText, location: matchLocation },
-                        activeInput
-                    );
+                    const prefix = activeInput.id.startsWith('from') ? 'from' : 'to';
+                    activeInput.value = selected.textContent;
+
+                    if (activeInput.id.includes('Location')) {
+                        const foundLocation = window.locationData.find(loc => 
+                            `${loc["Room Number"]} - ${loc.Description}` === selected.textContent
+                        );
+
+                        if (foundLocation) {
+                            const buildingInput = elements[`${prefix}Building`];
+                            const deptInput = elements[`${prefix}Department`];
+
+                            if (!buildingInput.value) {
+                                buildingInput.value = `${foundLocation.Site} - ${foundLocation.Building}`;
+                            }
+                            if (!deptInput.value) {
+                                deptInput.value = foundLocation.Department;
+                            }
+                        }
+                    }
+
+                    resultsContainer.style.display = 'none';
                 }
                 break;
 
             case 'Escape':
-                e.preventDefault();
-                removeExistingDropdown(activeInput);
+                resultsContainer.style.display = 'none';
                 break;
 
             case 'Tab':
                     if (selected) {
                         e.preventDefault();
-                        const matchText = selected.textContent;
-                        const matchLocation = window.locationData.find(loc => 
-                            `${loc["Room Number"]} - ${loc.Description}` === matchText
-                        );
-                        selectDropdownItem(
-                            { text: matchText, location: matchLocation },
-                            activeInput
-                        );
-                        
+                        activeInput.value = selected.textContent;
+                        resultsContainer.style.display = 'none';
+
+                        // Find next input field
                         const inputs = Array.from(document.querySelectorAll('input[type="text"], textarea'));
                         const currentIndex = inputs.indexOf(activeInput);
                         if (currentIndex < inputs.length - 1) {
