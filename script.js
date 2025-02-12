@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateDateTime() {
-        const formattedDateTime = 'Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): 2025-02-12 11:09:40\nCurrent User\'s Login: ugm616\n';
+        const formattedDateTime = 'Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): 2025-02-12 11:50:39\nCurrent User\'s Login: ugm616\n';
         elements.datetime.innerHTML = formattedDateTime.replace(/\n/g, '<br>');
     }
 
@@ -135,31 +135,46 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function loadLocations(db) {
-    try {
-        const transaction = db.transaction(["locations"], "readonly");
-        const store = transaction.objectStore("locations");
-        
-        const request = store.getAll();
-        
-        request.onsuccess = function(event) {
-            const locations = event.target.result;
-            if (locations && locations.length > 0) {
-                locations.sort((a, b) => {
-                    if (!a || !b || !a.name || !b.name) return 0;
-                    return a.name.localeCompare(b.name);
-                });
-            }
-        };
+        try {
+            const transaction = db.transaction(["locations"], "readonly");
+            const store = transaction.objectStore("locations");
+            
+            const request = store.getAll();
+            
+            request.onsuccess = function(event) {
+                const locations = event.target.result;
+                if (locations && locations.length > 0) {
+                    const formattedLocations = locations.map(location => ({
+                        name: `${location.Site} - ${location.Building} - ${location.Description}`,
+                        fullDetails: {
+                            Site: location.Site,
+                            Building: location.Building,
+                            Floor: location.Floor,
+                            Area: location.Area,
+                            Description: location.Description,
+                            RoomCode: location["Room Number"],
+                            Department: location.Department
+                        }
+                    }));
 
-        request.onerror = function(event) {
-            console.error("Error loading locations:", event.target.error);
-            throw event.target.error;
-        };
-    } catch (error) {
-        console.error('Error in loadLocations:', error);
-        throw error;
+                    formattedLocations.sort((a, b) => {
+                        if (!a || !b || !a.name || !b.name) return 0;
+                        return a.name.localeCompare(b.name);
+                    });
+
+                    window.locationData = formattedLocations;
+                }
+            };
+
+            request.onerror = function(event) {
+                console.error("Error loading locations:", event.target.error);
+                throw event.target.error;
+            };
+        } catch (error) {
+            console.error('Error in loadLocations:', error);
+            throw error;
+        }
     }
-}
 
     function loadDisciplines(db) {
         try {
@@ -171,7 +186,21 @@ document.addEventListener('DOMContentLoaded', function() {
             request.onsuccess = function(event) {
                 const disciplines = event.target.result;
                 if (disciplines && disciplines.length > 0) {
-                    disciplines.sort((a, b) => a.name.localeCompare(b.name));
+                    const formattedDisciplines = disciplines.map(discipline => ({
+                        name: discipline.fullName,
+                        fullDetails: {
+                            initials: discipline.initials,
+                            fullName: discipline.fullName,
+                            Hospital: discipline.Hospital
+                        }
+                    }));
+
+                    formattedDisciplines.sort((a, b) => {
+                        if (!a || !b || !a.name || !b.name) return 0;
+                        return a.name.localeCompare(b.name);
+                    });
+
+                    window.disciplineData = formattedDisciplines;
                 }
             };
 
@@ -220,31 +249,22 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        const db = request.result;
-        const transaction = db.transaction(["locations"], "readonly");
-        const store = transaction.objectStore("locations");
-        const getAllRequest = store.getAll();
+        if (!window.locationData) return;
 
-        getAllRequest.onsuccess = function() {
-            const locations = getAllRequest.result;
-            const uniqueBuildings = new Set();
-            
-            locations.forEach(location => {
-                if (location.fullDetails) {
-                    const buildingInfo = `${location.fullDetails.Site} - ${location.fullDetails.Building}`;
-                    if (buildingInfo.toLowerCase().includes(searchValue)) {
-                        uniqueBuildings.add(buildingInfo);
-                    }
-                }
-            });
+        const uniqueBuildings = new Set();
+        window.locationData.forEach(location => {
+            if (location.fullDetails && 
+                `${location.fullDetails.Site} - ${location.fullDetails.Building}`.toLowerCase().includes(searchValue)) {
+                uniqueBuildings.add(`${location.fullDetails.Site} - ${location.fullDetails.Building}`);
+            }
+        });
 
-            const matches = Array.from(uniqueBuildings).map(building => ({
-                name: building,
-                fullDetails: { Building: building }
-            }));
+        const matches = Array.from(uniqueBuildings).map(building => ({
+            name: building,
+            fullDetails: { Building: building }
+        }));
 
-            displayResults(matches, resultsContainer, input);
-        };
+        displayResults(matches, resultsContainer, input);
     }
 
     function handleDepartmentInput(event) {
@@ -257,29 +277,22 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        const db = request.result;
-        const transaction = db.transaction(["locations"], "readonly");
-        const store = transaction.objectStore("locations");
-        const getAllRequest = store.getAll();
+        if (!window.locationData) return;
 
-        getAllRequest.onsuccess = function() {
-            const locations = getAllRequest.result;
-            const uniqueDepartments = new Set();
-            
-            locations.forEach(location => {
-                if (location.fullDetails && location.fullDetails.Department && 
-                    location.fullDetails.Department.toLowerCase().includes(searchValue)) {
-                    uniqueDepartments.add(location.fullDetails.Department);
-                }
-            });
+        const uniqueDepartments = new Set();
+        window.locationData.forEach(location => {
+            if (location.fullDetails && location.fullDetails.Department &&
+                location.fullDetails.Department.toLowerCase().includes(searchValue)) {
+                uniqueDepartments.add(location.fullDetails.Department);
+            }
+        });
 
-            const matches = Array.from(uniqueDepartments).map(dept => ({
-                name: dept,
-                fullDetails: { Department: dept }
-            }));
+        const matches = Array.from(uniqueDepartments).map(dept => ({
+            name: dept,
+            fullDetails: { Department: dept }
+        }));
 
-            displayResults(matches, resultsContainer, input);
-        };
+        displayResults(matches, resultsContainer, input);
     }
 
     function handleLocationInput(event, prefix) {
@@ -294,28 +307,22 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        const db = request.result;
-        const transaction = db.transaction(["locations"], "readonly");
-        const store = transaction.objectStore("locations");
-        const getAllRequest = store.getAll();
+        if (!window.locationData) return;
 
-        getAllRequest.onsuccess = function() {
-            const locations = getAllRequest.result;
-            const matches = locations.filter(location => {
-                if (!location.fullDetails) return false;
-                
-                const buildingMatch = !buildingInput.value || 
-                    `${location.fullDetails.Site} - ${location.fullDetails.Building}` === buildingInput.value;
-                const deptMatch = !departmentInput.value || 
-                    location.fullDetails.Department === departmentInput.value;
-                const locationText = `${location.fullDetails.RoomCode} - ${location.fullDetails.Description}`;
-                
-                return buildingMatch && deptMatch && 
-                       locationText.toLowerCase().includes(searchValue);
-            });
+        const matches = window.locationData.filter(location => {
+            if (!location.fullDetails) return false;
+            
+            const buildingMatch = !buildingInput.value || 
+                `${location.fullDetails.Site} - ${location.fullDetails.Building}` === buildingInput.value;
+            const deptMatch = !departmentInput.value || 
+                location.fullDetails.Department === departmentInput.value;
+            const locationText = `${location.fullDetails.RoomCode} - ${location.fullDetails.Description}`;
+            
+            return buildingMatch && deptMatch && 
+                   locationText.toLowerCase().includes(searchValue);
+        });
 
-            displayResults(matches, resultsContainer, input, true);
-        };
+        displayResults(matches, resultsContainer, input, true);
     }
 
     function handleDisciplineInput(event) {
@@ -323,25 +330,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const searchValue = input.value.toLowerCase();
         const resultsContainer = getOrCreateResultsContainer(input);
         
-        if (!searchValue) {
+        if (!searchValue || !window.disciplineData) {
             resultsContainer.style.display = 'none';
             return;
         }
 
-        const db = request.result;
-        const transaction = db.transaction(["disciplines"], "readonly");
-        const store = transaction.objectStore("disciplines");
-        const getAllRequest = store.getAll();
+        const matches = window.disciplineData.filter(discipline => 
+            discipline.name.toLowerCase().includes(searchValue) ||
+            discipline.fullDetails.initials.toLowerCase().includes(searchValue)
+        );
 
-        getAllRequest.onsuccess = function() {
-            const disciplines = getAllRequest.result;
-            const matches = disciplines.filter(discipline => 
-                discipline.fullDetails && Object.values(discipline.fullDetails)
-                    .some(value => value && value.toString().toLowerCase().includes(searchValue))
-            );
-
-            displayResults(matches, resultsContainer, input);
-        };
+        displayResults(matches, resultsContainer, input);
     }
 
     function getOrCreateResultsContainer(input) {
@@ -354,59 +353,61 @@ document.addEventListener('DOMContentLoaded', function() {
             input.parentNode.insertBefore(container, input.nextSibling);
         }
         
-        function displayResults(matches, container, input, isLocation = false) {
-    const searchValue = input.value.toLowerCase();
-    
-    if (!matches.length || !searchValue) {
-        container.style.display = 'none';
-        return;
+        return container;
     }
 
-    container.innerHTML = '';
-    container.style.display = 'block';
-
-    matches.forEach((item) => {
-        const div = document.createElement('div');
-        div.className = 'search-result-item';
+    function displayResults(matches, container, input, isLocation = false) {
+        const searchValue = input.value.toLowerCase();
         
-        let info;
-        if (isLocation && item.fullDetails) {
-            info = `${item.fullDetails.RoomCode} - ${item.fullDetails.Description}`;
-        } else {
-            info = item.name;
+        if (!matches.length || !searchValue) {
+            container.style.display = 'none';
+            return;
         }
-        
-        // Simply display the text without highlighting
-        div.textContent = info;
-        
-        div.addEventListener('click', () => {
-            input.value = info;
+
+        container.innerHTML = '';
+        container.style.display = 'block';
+
+        matches.forEach((item) => {
+            const div = document.createElement('div');
+            div.className = 'search-result-item';
             
-            if (isLocation) {
-                const prefix = input.id.startsWith('from') ? 'from' : 'to';
-                const buildingInput = elements[`${prefix}Building`];
-                const deptInput = elements[`${prefix}Department`];
-                
-                if (!buildingInput.value && item.fullDetails) {
-                    buildingInput.value = `${item.fullDetails.Site} - ${item.fullDetails.Building}`;
-                }
-                if (!deptInput.value && item.fullDetails) {
-                    deptInput.value = item.fullDetails.Department;
-                }
+            let info;
+            if (isLocation && item.fullDetails) {
+                info = `${item.fullDetails.RoomCode} - ${item.fullDetails.Description}`;
+            } else {
+                info = item.name;
             }
             
-            container.style.display = 'none';
-        });
+            div.textContent = info;
+            
+            div.addEventListener('click', () => {
+                input.value = info;
+                
+                if (isLocation) {
+                    const prefix = input.id.startsWith('from') ? 'from' : 'to';
+                    const buildingInput = elements[`${prefix}Building`];
+                    const deptInput = elements[`${prefix}Department`];
+                    
+                    if (!buildingInput.value && item.fullDetails) {
+                        buildingInput.value = `${item.fullDetails.Site} - ${item.fullDetails.Building}`;
+                    }
+                    if (!deptInput.value && item.fullDetails) {
+                        deptInput.value = item.fullDetails.Department;
+                    }
+                }
+                
+                container.style.display = 'none';
+            });
 
-        div.addEventListener('mouseover', () => {
-            const selected = container.querySelector('.selected');
-            if (selected) selected.classList.remove('selected');
-            div.classList.add('selected');
-        });
+            div.addEventListener('mouseover', () => {
+                const selected = container.querySelector('.selected');
+                if (selected) selected.classList.remove('selected');
+                div.classList.add('selected');
+            });
 
-        container.appendChild(div);
-    });
-}
+            container.appendChild(div);
+        });
+    }
 
     function handleNewTask() {
         elements.name.value = '';
@@ -470,27 +471,34 @@ document.addEventListener('DOMContentLoaded', function() {
                     const prefix = activeInput.id.startsWith('from') ? 'from' : 'to';
                     if (activeInput.id.includes('Location')) {
                         // Handle location selection
-                        const fullDetails = JSON.parse(selected.getAttribute('data-details') || '{}');
-                        activeInput.value = `${fullDetails.RoomCode} - ${fullDetails.Description}`;
+                        const locationInfo = selected.textContent.trim();
+                        activeInput.value = locationInfo;
                         
+                        // If building or department is empty, fill them from the selected item
                         const buildingInput = elements[`${prefix}Building`];
                         const deptInput = elements[`${prefix}Department`];
                         
-                        if (!buildingInput.value && fullDetails.Site && fullDetails.Building) {
-                            buildingInput.value = `${fullDetails.Site} - ${fullDetails.Building}`;
-                        }
-                        if (!deptInput.value && fullDetails.Department) {
-                            deptInput.value = fullDetails.Department;
+                        const matchedLocation = window.locationData.find(loc => 
+                            `${loc.fullDetails.RoomCode} - ${loc.fullDetails.Description}` === locationInfo
+                        );
+
+                        if (matchedLocation) {
+                            if (!buildingInput.value) {
+                                buildingInput.value = `${matchedLocation.fullDetails.Site} - ${matchedLocation.fullDetails.Building}`;
+                            }
+                            if (!deptInput.value) {
+                                deptInput.value = matchedLocation.fullDetails.Department;
+                            }
                         }
                     } else if (activeInput.id.includes('Building')) {
                         // Handle building selection
-                        activeInput.value = selected.textContent.replace(/\s+/g, ' ').trim();
+                        activeInput.value = selected.textContent.trim();
                     } else if (activeInput.id.includes('Department')) {
                         // Handle department selection
-                        activeInput.value = selected.textContent.replace(/\s+/g, ' ').trim();
+                        activeInput.value = selected.textContent.trim();
                     } else {
                         // Handle category or other fields
-                        activeInput.value = selected.textContent.replace(/\s+/g, ' ').trim();
+                        activeInput.value = selected.textContent.trim();
                     }
                     container.style.display = 'none';
                 }
@@ -501,10 +509,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 break;
 
             case 'Tab':
-                // Handle tab key to move between fields
                 if (selected) {
                     e.preventDefault();
-                    activeInput.value = selected.textContent.replace(/\s+/g, ' ').trim();
+                    activeInput.value = selected.textContent.trim();
                     container.style.display = 'none';
                 }
                 break;
