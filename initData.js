@@ -4,7 +4,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const DB_NAME = "theoryDB";
     const DB_VERSION = 2;
     const CURRENT_USER = "ugm616";
-    const CURRENT_DATETIME = "2025-02-12 09:05:02";
+    const CURRENT_DATETIME = "2025-02-12 09:18:18";
+
+    updateStatus("Checking database status...");
 
     // First check if database exists and has data
     const checkRequest = indexedDB.open(DB_NAME);
@@ -20,6 +22,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Check if all required stores exist and have data
         if (db.objectStoreNames.contains("locations") && 
             db.objectStoreNames.contains("disciplines")) {
+            
+            updateStatus("Checking data stores...");
             
             // Use a transaction to check both stores
             const transaction = db.transaction(["locations", "disciplines"], "readonly");
@@ -37,48 +41,57 @@ document.addEventListener('DOMContentLoaded', function() {
                     discCount.onsuccess = () => resolve(discCount.result);
                 })
             ]).then(([locationsCount, disciplinesCount]) => {
+                updateStatus(`Found ${locationsCount} locations and ${disciplinesCount} disciplines...`);
+                
                 if (locationsCount > 0 && disciplinesCount > 0) {
                     // Only redirect if we're on index.html
                     if (window.location.pathname.endsWith('index.html')) {
-                        console.log('Database already initialized, redirecting to main...');
-                        window.location.href = 'main.html';
+                        updateStatus("Database already initialized, redirecting to main...");
+                        setTimeout(() => window.location.href = 'main.html', 1000);
                     }
                 } else {
-                    // If any store is empty, reinitialize
+                    updateStatus("Empty data stores found, reinitializing...");
                     initializeNewDatabase();
                 }
             });
         } else {
-            // Required stores don't exist, proceed with initialization
+            updateStatus("Required stores missing, creating new database...");
             initializeNewDatabase();
         }
     };
 
     function initializeNewDatabase() {
+        updateStatus("Preparing new database...");
         // Delete existing database first
         const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
 
         deleteRequest.onsuccess = function() {
+            updateStatus("Creating new database structure...");
             const request = indexedDB.open(DB_NAME, DB_VERSION);
 
             request.onupgradeneeded = function(event) {
                 const db = event.target.result;
+                updateStatus("Creating database stores...");
                 
                 if (!db.objectStoreNames.contains("reference")) {
                     db.createObjectStore("reference", { keyPath: "id" });
+                    updateStatus("Created reference store...");
                 }
                 
                 if (!db.objectStoreNames.contains("locations")) {
                     db.createObjectStore("locations", { autoIncrement: true });
+                    updateStatus("Created locations store...");
                 }
 
                 if (!db.objectStoreNames.contains("disciplines")) {
                     db.createObjectStore("disciplines", { keyPath: "initials" });
+                    updateStatus("Created disciplines store...");
                 }
             };
 
             request.onsuccess = function(event) {
                 const db = event.target.result;
+                updateStatus("Database structure ready, loading data...");
                 initializeData(db);
             };
 
@@ -169,7 +182,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function initializeData(db) {
-        updateStatus("Loading data...");
+        updateStatus("Initializing reference data...");
 
         // Initialize reference data with current timestamp
         const refTxn = db.transaction(["reference"], "readwrite");
@@ -186,44 +199,57 @@ document.addEventListener('DOMContentLoaded', function() {
             updatedBy: CURRENT_USER
         });
 
+        updateStatus("Loading CSV files...");
+
         // Load all required CSV files
         Promise.all([
             fetch('locations.csv')
                 .then(response => {
                     if (!response.ok) throw new Error('Failed to load locations.csv');
+                    updateStatus("Loading locations data...");
                     return response.text();
                 }),
             fetch('disciplines.csv')
                 .then(response => {
                     if (!response.ok) throw new Error('Failed to load disciplines.csv');
+                    updateStatus("Loading disciplines data...");
                     return response.text();
                 })
         ])
         .then(([locationsData, disciplinesData]) => {
-            updateStatus("Processing data...");
-            
-            // Parse each CSV file (disciplines use headers)
+            updateStatus("Processing location data...");
             const locations = parseCSV(locationsData, false);
+            
+            updateStatus("Processing discipline data...");
             const disciplines = parseCSV(disciplinesData, true);
+
+            updateStatus(`Storing ${locations.length} locations and ${disciplines.length} disciplines...`);
 
             // Store all data in a single transaction
             const txn = db.transaction(["locations", "disciplines"], "readwrite");
+            let totalLocations = 0;
+            let totalDisciplines = 0;
             
             // Store locations
             const locStore = txn.objectStore("locations");
-            locations.forEach(location => {
+            locations.forEach((location, index) => {
                 const locationName = `${location.Location}, ${location.Building} - ${location.Room}`;
                 locStore.add({
                     name: locationName,
                     fullDetails: location,
                     lastUpdated: CURRENT_DATETIME,
                     updatedBy: CURRENT_USER
-                });
+                }).onsuccess = () => {
+                    totalLocations++;
+                    if (totalLocations % 50 === 0 || totalLocations === locations.length) {
+                        updateStatus(`Storing locations... (${totalLocations}/${locations.length})`);
+                    }
+                };
             });
 
             // Store disciplines
             const discStore = txn.objectStore("disciplines");
-            disciplines.forEach(discipline => {
+            disciplines.forEach((discipline, index) => {
                 if (!discipline.initials) {
                     console.warn('Skipping discipline without initials:', discipline);
                     return;
@@ -232,13 +258,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     ...discipline,
                     lastUpdated: CURRENT_DATETIME,
                     updatedBy: CURRENT_USER
-                });
+                }).onsuccess = () => {
+                    totalDisciplines++;
+                    updateStatus(`Storing disciplines... (${totalDisciplines}/${disciplines.length})`);
+                };
             });
 
             txn.oncomplete = function() {
                 console.log("Database initialization complete");
                 updateStatus("Initialization complete, redirecting...");
-                window.location.href = 'main.html';
+                setTimeout(() => window.location.href = 'main.html', 1000);
             };
 
             txn.onerror = function(event) {
