@@ -87,11 +87,31 @@
             display: flex;
             align-items: center;
             flex: 1;
+            position: relative;
         }
 
         .input-group label {
             min-width: 70px;
             margin-right: 10px;
+            font-size: 12px;
+        }
+
+        .location-section {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .location-section .input-group {
+            flex: 1;
+            display: flex;
+            align-items: center;
+        }
+
+        .location-section label {
+            min-width: 60px;
+            font-weight: bold;
             font-size: 12px;
         }
 
@@ -145,12 +165,12 @@
             border-radius: 4px;
             max-height: 300px;
             overflow-y: auto;
-            width: calc(100% - 85px);
+            width: 100%;
             box-shadow: 0 2px 4px var(--shadow-color);
             z-index: 1000;
             margin-top: 2px;
             font-size: 12px;
-            left: 80px;
+            left: 0;
             top: 100%;
         }
 
@@ -180,24 +200,6 @@
             display: none !important;
         }
 
-        .location-section {
-            margin-bottom: 15px;
-            border-left: 2px solid var(--border-color);
-            padding-left: 10px;
-        }
-
-        .location-section .row {
-            margin-bottom: 5px;
-        }
-
-        .location-section .row:first-child {
-            margin-top: 0;
-        }
-
-        .location-section label {
-            min-width: 60px;
-        }
-
         @media print {
             .no-print {
                 display: none;
@@ -219,7 +221,7 @@
                 <img src="logo.png" alt="Logo" class="logo">
                 <span id="refNumber">REF: Loading...</span>
             </div>
-            <span id="datetime">2025-02-12 12:53:05<br>ugm616</span>
+            <span id="datetime">2025-02-12 13:04:05<br>ugm616</span>
         </div>
     </div>
 
@@ -236,32 +238,32 @@
         </div>
 
         <div class="location-section">
-            <div class="row">
+            <div class="input-group">
                 <label for="fromBuilding">From:</label>
                 <input type="text" id="fromBuilding" autocomplete="off" placeholder="Building">
             </div>
-            <div class="row">
+            <div class="input-group">
                 <label for="fromDepartment">Dept:</label>
                 <input type="text" id="fromDepartment" autocomplete="off" placeholder="Department">
             </div>
-            <div class="row">
-                <label for="fromLocation">Location:</label>
-                <input type="text" id="fromLocation" autocomplete="off" placeholder="Room">
+            <div class="input-group">
+                <label for="fromLocation">Room:</label>
+                <input type="text" id="fromLocation" autocomplete="off" placeholder="Location">
             </div>
         </div>
 
         <div class="location-section">
-            <div class="row">
+            <div class="input-group">
                 <label for="toBuilding">To:</label>
                 <input type="text" id="toBuilding" autocomplete="off" placeholder="Building">
             </div>
-            <div class="row">
+            <div class="input-group">
                 <label for="toDepartment">Dept:</label>
                 <input type="text" id="toDepartment" autocomplete="off" placeholder="Department">
             </div>
-            <div class="row">
-                <label for="toLocation">Location:</label>
-                <input type="text" id="toLocation" autocomplete="off" placeholder="Room">
+            <div class="input-group">
+                <label for="toLocation">Room:</label>
+                <input type="text" id="toLocation" autocomplete="off" placeholder="Location">
             </div>
         </div>
 
