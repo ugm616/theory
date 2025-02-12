@@ -83,6 +83,9 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 window.location.href = 'index.html';
             }
+        }).catch(error => {
+            console.error("Error during database check:", error);
+            window.location.href = 'index.html';
         });
     };
 
