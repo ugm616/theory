@@ -135,28 +135,31 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function loadLocations(db) {
-        try {
-            const transaction = db.transaction(["locations"], "readonly");
-            const store = transaction.objectStore("locations");
-            
-            const request = store.getAll();
-            
-            request.onsuccess = function(event) {
-                const locations = event.target.result;
-                if (locations && locations.length > 0) {
-                    locations.sort((a, b) => a.name.localeCompare(b.name));
-                }
-            };
+    try {
+        const transaction = db.transaction(["locations"], "readonly");
+        const store = transaction.objectStore("locations");
+        
+        const request = store.getAll();
+        
+        request.onsuccess = function(event) {
+            const locations = event.target.result;
+            if (locations && locations.length > 0) {
+                locations.sort((a, b) => {
+                    if (!a || !b || !a.name || !b.name) return 0;
+                    return a.name.localeCompare(b.name);
+                });
+            }
+        };
 
-            request.onerror = function(event) {
-                console.error("Error loading locations:", event.target.error);
-                throw event.target.error;
-            };
-        } catch (error) {
-            console.error('Error in loadLocations:', error);
-            throw error;
-        }
+        request.onerror = function(event) {
+            console.error("Error loading locations:", event.target.error);
+            throw event.target.error;
+        };
+    } catch (error) {
+        console.error('Error in loadLocations:', error);
+        throw error;
     }
+}
 
     function loadDisciplines(db) {
         try {
@@ -351,65 +354,59 @@ document.addEventListener('DOMContentLoaded', function() {
             input.parentNode.insertBefore(container, input.nextSibling);
         }
         
-        return container;
+        function displayResults(matches, container, input, isLocation = false) {
+    const searchValue = input.value.toLowerCase();
+    
+    if (!matches.length || !searchValue) {
+        container.style.display = 'none';
+        return;
     }
 
-    function displayResults(matches, container, input, isLocation = false) {
-        const searchValue = input.value.toLowerCase();
+    container.innerHTML = '';
+    container.style.display = 'block';
+
+    matches.forEach((item) => {
+        const div = document.createElement('div');
+        div.className = 'search-result-item';
         
-        if (!matches.length || !searchValue) {
-            container.style.display = 'none';
-            return;
+        let info;
+        if (isLocation && item.fullDetails) {
+            info = `${item.fullDetails.RoomCode} - ${item.fullDetails.Description}`;
+        } else {
+            info = item.name;
         }
-
-        container.innerHTML = '';
-        container.style.display = 'block';
-
-        matches.forEach((item) => {
-            const div = document.createElement('div');
-            div.className = 'search-result-item';
+        
+        // Simply display the text without highlighting
+        div.textContent = info;
+        
+        div.addEventListener('click', () => {
+            input.value = info;
             
-            let info;
-            if (isLocation && item.fullDetails) {
-                info = `${item.fullDetails.RoomCode} - ${item.fullDetails.Description}`;
-            } else {
-                info = item.name;
-            }
-
-            const highlightedText = info.replace(new RegExp(searchValue, 'gi'), 
-                match => `<span class="highlight">${match}</span>`
-            );
-            
-            div.innerHTML = highlightedText;
-            
-            div.addEventListener('click', () => {
-                input.value = info;
+            if (isLocation) {
+                const prefix = input.id.startsWith('from') ? 'from' : 'to';
+                const buildingInput = elements[`${prefix}Building`];
+                const deptInput = elements[`${prefix}Department`];
                 
-                if (isLocation) {
-                    const prefix = input.id.startsWith('from') ? 'from' : 'to';
-                    const buildingInput = elements[`${prefix}Building`];
-                    const deptInput = elements[`${prefix}Department`];
-                    
-                    if (!buildingInput.value && item.fullDetails) {
-                        buildingInput.value = `${item.fullDetails.Site} - ${item.fullDetails.Building}`;
-                    }
-                    if (!deptInput.value && item.fullDetails) {
-                        deptInput.value = item.fullDetails.Department;
-                    }
+                if (!buildingInput.value && item.fullDetails) {
+                    buildingInput.value = `${item.fullDetails.Site} - ${item.fullDetails.Building}`;
                 }
-                
-                container.style.display = 'none';
-            });
-
-            div.addEventListener('mouseover', () => {
-                const selected = container.querySelector('.selected');
-                if (selected) selected.classList.remove('selected');
-                div.classList.add('selected');
-            });
-
-            container.appendChild(div);
+                if (!deptInput.value && item.fullDetails) {
+                    deptInput.value = item.fullDetails.Department;
+                }
+            }
+            
+            container.style.display = 'none';
         });
-    }
+
+        div.addEventListener('mouseover', () => {
+            const selected = container.querySelector('.selected');
+            if (selected) selected.classList.remove('selected');
+            div.classList.add('selected');
+        });
+
+        container.appendChild(div);
+    });
+}
 
     function handleNewTask() {
         elements.name.value = '';
