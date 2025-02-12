@@ -2,9 +2,9 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Initializing IndexedDB...');
     
     const DB_NAME = "theoryDB";
-    const DB_VERSION = 2; // Increased version for new stores
-    const CURRENT_USER = "ugm616"; // Current user from system
-    const CURRENT_DATETIME = "2025-02-12 08:42:22"; // Current UTC datetime
+    const DB_VERSION = 2;
+    const CURRENT_USER = "ugm616";
+    const CURRENT_DATETIME = "2025-02-12 08:54:42";
 
     // First check if database exists and has data
     const checkRequest = indexedDB.open(DB_NAME);
@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
 
                 if (!db.objectStoreNames.contains("disciplines")) {
-                    db.createObjectStore("disciplines", { keyPath: "code" });
+                    db.createObjectStore("disciplines", { keyPath: "initials" });
                 }
             };
 
@@ -206,6 +206,10 @@ document.addEventListener('DOMContentLoaded', function() {
             // Store disciplines
             const discStore = txn.objectStore("disciplines");
             disciplines.forEach(discipline => {
+                if (!discipline.initials) {
+                    console.warn('Skipping discipline without initials:', discipline);
+                    return;
+                }
                 discStore.add({
                     ...discipline,
                     lastUpdated: CURRENT_DATETIME,
@@ -228,44 +232,5 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error loading CSV files:', error);
             showError(`Failed to load data files: ${error.message}`);
         });
-    }
-
-    function addLocationsToDb(db, locations) {
-        updateStatus("Storing location data...");
-        const locTxn = db.transaction(["locations"], "readwrite");
-        const locStore = locTxn.objectStore("locations");
-
-        let completed = 0;
-        const total = locations.length;
-        
-        locations.forEach(function(location) {
-            const locationName = `${location.Location}, ${location.Building} - ${location.Room}`;
-            const request = locStore.add({
-                name: locationName,
-                fullDetails: location,
-                lastUpdated: CURRENT_DATETIME,
-                updatedBy: CURRENT_USER
-            });
-            
-            request.onsuccess = function() {
-                completed++;
-                updateStatus(`Processing locations... (${completed}/${total})`);
-                
-                if (completed === total) {
-                    console.log("Database initialization complete");
-                    window.location.href = 'main.html';
-                }
-            };
-            
-            request.onerror = function(event) {
-                console.error("Error adding location:", location, event.target.error);
-                showError("Error storing location data. Please try again.");
-            };
-        });
-
-        locTxn.onerror = function(event) {
-            console.error("Transaction error:", event.target.error);
-            showError("Database transaction failed. Please try again.");
-        };
     }
 });
