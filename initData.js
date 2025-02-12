@@ -1,79 +1,97 @@
 document.addEventListener('DOMContentLoaded', function() {
+    window.addEventListener('unhandledrejection', function(event) {
+        console.error('Unhandled promise rejection:', event.reason);
+        showError('An unexpected error occurred. Please try again.');
+    });
+
     console.log('Initializing IndexedDB...');
     
     const DB_NAME = "theoryDB";
     const DB_VERSION = 2;
     const CURRENT_USER = "ugm616";
-    const CURRENT_DATETIME = "2025-02-12 09:33:21";
+    const CURRENT_DATETIME = "2025-02-12 09:44:52";
 
-    updateStatus("Checking database status...");
-
-    // First check if database exists and has data
-    const checkRequest = indexedDB.open(DB_NAME);
-    
-    checkRequest.onerror = function(event) {
-        console.error("Database error:", event.target.error);
-        showError("Failed to open database. Please try again.");
-    };
-    
-    checkRequest.onsuccess = function(event) {
-        const db = event.target.result;
+    try {
+        updateStatus("Checking database status...");
+        const checkRequest = indexedDB.open(DB_NAME);
         
-        // Check if all required stores exist and have data
-        if (db.objectStoreNames.contains("locations") && 
-            db.objectStoreNames.contains("disciplines")) {
-            
-            updateStatus("Checking data stores...");
-            
-            // Use a transaction to check both stores
-            const transaction = db.transaction(["locations", "disciplines"], "readonly");
-            const locStore = transaction.objectStore("locations");
-            const discStore = transaction.objectStore("disciplines");
-            
-            // Check counts for both stores
-            Promise.all([
-                new Promise(resolve => {
-                    const locCount = locStore.count();
-                    locCount.onsuccess = () => resolve(locCount.result);
-                }),
-                new Promise(resolve => {
-                    const discCount = discStore.count();
-                    discCount.onsuccess = () => resolve(discCount.result);
-                })
-            ]).then(([locationsCount, disciplinesCount]) => {
-                updateStatus(`Found ${locationsCount} locations and ${disciplinesCount} disciplines...`);
+        checkRequest.onerror = function(event) {
+            console.error("Database error:", event.target.error);
+            showError("Failed to open database. Please try again.");
+        };
+        
+        checkRequest.onsuccess = function(event) {
+            try {
+                const db = event.target.result;
                 
-                if (locationsCount > 0 && disciplinesCount > 0) {
-                    // Remove the pathname check since we always want to redirect if data exists
-                    updateStatus("Database already initialized, redirecting to main...");
-                    console.log("Redirecting to main.html...");
-                    // Force the redirect with a small delay
-                    setTimeout(() => {
-                        try {
-                            window.location.replace('main.html');
-                        } catch (e) {
-                            console.error("Redirect failed:", e);
-                            // Fallback method
-                            window.location.href = 'main.html';
+                if (db.objectStoreNames.contains("locations") && 
+                    db.objectStoreNames.contains("disciplines")) {
+                    
+                    updateStatus("Checking data stores...");
+                    
+                    const transaction = db.transaction(["locations", "disciplines"], "readonly");
+                    const locStore = transaction.objectStore("locations");
+                    const discStore = transaction.objectStore("disciplines");
+                    
+                    Promise.all([
+                        new Promise(resolve => {
+                            const locCount = locStore.count();
+                            locCount.onsuccess = () => resolve(locCount.result);
+                        }),
+                        new Promise(resolve => {
+                            const discCount = discStore.count();
+                            discCount.onsuccess = () => resolve(discCount.result);
+                        })
+                    ]).then(([locationsCount, disciplinesCount]) => {
+                        updateStatus(`Found ${locationsCount} locations and ${disciplinesCount} disciplines...`);
+                        
+                        if (locationsCount > 0 && disciplinesCount > 0) {
+                            updateStatus("Database already initialized, redirecting to main...");
+                            console.log("Redirecting to main.html...");
+                            redirectToMain();
+                        } else {
+                            updateStatus("Empty data stores found, reinitializing...");
+                            initializeNewDatabase();
                         }
-                    }, 500);
+                    }).catch(error => {
+                        console.error("Error checking stores:", error);
+                        showError("Failed to check data stores. Please try again.");
+                    });
                 } else {
-                    updateStatus("Empty data stores found, reinitializing...");
+                    updateStatus("Required stores missing, creating new database...");
                     initializeNewDatabase();
                 }
-            }).catch(error => {
-                console.error("Error checking stores:", error);
-                showError("Failed to check data stores. Please try again.");
-            });
-        } else {
-            updateStatus("Required stores missing, creating new database...");
-            initializeNewDatabase();
+            } catch (e) {
+                console.error("Error in success handler:", e);
+                showError("An error occurred while checking the database.");
+            }
+        };
+    } catch (e) {
+        console.error("Critical error during initialization:", e);
+        showError("A critical error occurred during initialization.");
+    }
+
+    function redirectToMain() {
+        try {
+            window.location.replace('main.html');
+        } catch (e1) {
+            console.error("First redirect attempt failed:", e1);
+            try {
+                window.location.href = 'main.html';
+            } catch (e2) {
+                console.error("Second redirect attempt failed:", e2);
+                try {
+                    window.location.assign('main.html');
+                } catch (e3) {
+                    console.error("All redirect attempts failed:", e3);
+                    showError("Unable to redirect to main page. Please try refreshing the page.");
+                }
+            }
         }
-    };
+    }
 
     function initializeNewDatabase() {
         updateStatus("Preparing new database...");
-        // Delete existing database first
         const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
 
         deleteRequest.onsuccess = function() {
@@ -150,9 +168,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        // Add the last field
         result.push(text.substring(startPos).replace(/^"|"$/g, '').trim());
-        
         return result;
     }
 
@@ -160,7 +176,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const lines = csvText.split(/\r?\n/);
         const results = [];
         
-        // Define headers based on CSV structure or use first line
         const headers = useHeaders ? lines[0].split(',').map(header => header.trim()) : [
             'Location',
             'Building',
@@ -195,7 +210,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function initializeData(db) {
         updateStatus("Initializing reference data...");
 
-        // Initialize reference data with current timestamp
         const refTxn = db.transaction(["reference"], "readwrite");
         const refStore = refTxn.objectStore("reference");
         
@@ -212,7 +226,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         updateStatus("Loading CSV files...");
 
-        // Load all required CSV files
         Promise.all([
             fetch('locations.csv')
                 .then(response => {
@@ -236,12 +249,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
             updateStatus(`Storing ${locations.length} locations and ${disciplines.length} disciplines...`);
 
-            // Store all data in a single transaction
             const txn = db.transaction(["locations", "disciplines"], "readwrite");
             let totalLocations = 0;
             let totalDisciplines = 0;
             
-            // Store locations
             const locStore = txn.objectStore("locations");
             locations.forEach((location, index) => {
                 const locationName = `${location.Location}, ${location.Building} - ${location.Room}`;
@@ -258,7 +269,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 };
             });
 
-            // Store disciplines
             const discStore = txn.objectStore("disciplines");
             disciplines.forEach((discipline, index) => {
                 if (!discipline.initials) {
@@ -283,7 +293,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         window.location.replace('main.html');
                     } catch (e) {
                         console.error("Redirect failed:", e);
-                        // Fallback method
                         window.location.href = 'main.html';
                     }
                 }, 500);
@@ -300,18 +309,15 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Add a function to force redirect if needed
-    function forceRedirect() {
-        console.log("Forcing redirect to main.html");
-        window.location.replace('main.html');
-    }
-
-    // Add event listener for when the page has been loaded for too long
     setTimeout(() => {
-        const statusElement = document.getElementById('statusMessage');
-        if (statusElement && document.location.pathname.includes('index.html')) {
-            console.log("Page has been on index.html too long, forcing redirect...");
-            forceRedirect();
+        try {
+            const statusElement = document.getElementById('statusMessage');
+            if (statusElement && document.location.pathname.includes('index.html')) {
+                console.log("Page has been on index.html too long, forcing redirect...");
+                redirectToMain();
+            }
+        } catch (e) {
+            console.error("Timeout handler error:", e);
         }
-    }, 10000); // 10 second timeout
+    }, 10000);
 });
