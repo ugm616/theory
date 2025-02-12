@@ -92,14 +92,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateDateTime() {
-        elements.datetime.innerHTML = 'Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): 2025-02-12 13:41:22<br>Current User\'s Login: ugm616';
+        elements.datetime.innerHTML = 'Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): 2025-02-12 14:02:30<br>Current User\'s Login: ugm616';
     }
 
     function loadReferenceNumber(db) {
         try {
             const transaction = db.transaction(["reference"], "readonly");
             const store = transaction.objectStore("reference");
-            
             const request = store.get(1);
             
             request.onsuccess = function(event) {
@@ -108,13 +107,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     elements.refNumber.textContent = `REF: ${data.reference}`;
                 }
             };
-
-            request.onerror = function(event) {
-                console.error("Error loading reference:", event.target.error);
-            };
         } catch (error) {
-            console.error('Error in loadReferenceNumber:', error);
-            throw error;
+            console.error('Error loading reference number:', error);
         }
     }
 
@@ -128,26 +122,9 @@ document.addEventListener('DOMContentLoaded', function() {
             request.onsuccess = function(event) {
                 const locations = event.target.result;
                 if (locations && locations.length > 0) {
-                    window.locationData = locations.map(location => ({
-                        name: `${location.Site} - ${location.Building} - ${location.Description}`,
-                        fullDetails: {
-                            Site: location.Site,
-                            Building: location.Building,
-                            Floor: location.Floor,
-                            Area: location.Area,
-                            Description: location.Description,
-                            RoomCode: location["Room Number"],
-                            Department: location.Department
-                        }
-                    })).sort((a, b) => {
-                        if (!a || !b || !a.name || !b.name) return 0;
-                        return a.name.localeCompare(b.name);
-                    });
+                    window.locationData = locations;
+                    console.log('Locations loaded:', window.locationData.length);
                 }
-            };
-
-            request.onerror = function(event) {
-                console.error("Error loading locations:", event.target.error);
             };
         } catch (error) {
             console.error('Error in loadLocations:', error);
@@ -165,22 +142,9 @@ document.addEventListener('DOMContentLoaded', function() {
             request.onsuccess = function(event) {
                 const disciplines = event.target.result;
                 if (disciplines && disciplines.length > 0) {
-                    window.disciplineData = disciplines.map(discipline => ({
-                        name: discipline.fullName,
-                        fullDetails: {
-                            initials: discipline.initials,
-                            fullName: discipline.fullName,
-                            Hospital: discipline.Hospital
-                        }
-                    })).sort((a, b) => {
-                        if (!a || !b || !a.name || !b.name) return 0;
-                        return a.name.localeCompare(b.name);
-                    });
+                    window.disciplineData = disciplines;
+                    console.log('Disciplines loaded:', window.disciplineData.length);
                 }
-            };
-
-            request.onerror = function(event) {
-                console.error("Error loading disciplines:", event.target.error);
             };
         } catch (error) {
             console.error('Error in loadDisciplines:', error);
@@ -189,202 +153,146 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function setupEventListeners() {
+        // Set up input event listeners for search functionality
+        elements.fromBuilding.addEventListener('input', (e) => handleSearch(e, 'building'));
+        elements.fromDepartment.addEventListener('input', (e) => handleSearch(e, 'department'));
+        elements.fromLocation.addEventListener('input', (e) => handleSearch(e, 'location'));
+        elements.toBuilding.addEventListener('input', (e) => handleSearch(e, 'building'));
+        elements.toDepartment.addEventListener('input', (e) => handleSearch(e, 'department'));
+        elements.toLocation.addEventListener('input', (e) => handleSearch(e, 'location'));
+        elements.category.addEventListener('input', (e) => handleSearch(e, 'category'));
+
+        // Set up button event listeners
         elements.newTaskBtn.addEventListener('click', handleNewTask);
         elements.printTaskBtn.addEventListener('click', handlePrintTask);
-        
-        elements.fromBuilding.addEventListener('input', handleBuildingInput);
-        elements.fromDepartment.addEventListener('input', handleDepartmentInput);
-        elements.fromLocation.addEventListener('input', e => handleLocationInput(e, 'from'));
-        
-        elements.toBuilding.addEventListener('input', handleBuildingInput);
-        elements.toDepartment.addEventListener('input', handleDepartmentInput);
-        elements.toLocation.addEventListener('input', e => handleLocationInput(e, 'to'));
-        
-        elements.category.addEventListener('input', handleDisciplineInput);
 
-        // Close results when clicking outside
+        // Initialize datetime
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+
+        // Close dropdowns when clicking outside
         document.addEventListener('click', function(e) {
-            const resultsContainers = document.querySelectorAll('.search-results');
-            resultsContainers.forEach(container => {
-                if (!container.contains(e.target) && !e.target.matches('input[type="text"]')) {
-                    container.style.display = 'none';
+            const dropdowns = document.querySelectorAll('.search-results');
+            dropdowns.forEach(dropdown => {
+                if (!dropdown.contains(e.target) && e.target.tagName !== 'INPUT') {
+                    dropdown.style.display = 'none';
                 }
             });
         });
     }
 
-    function handleBuildingInput(event) {
+    function handleSearch(event, type) {
         const input = event.target;
-        const searchValue = input.value.toLowerCase();
-        const resultsContainer = getOrCreateResultsContainer(input);
+        const searchTerm = input.value.toLowerCase();
         
-        if (!searchValue) {
-            resultsContainer.style.display = 'none';
+        if (!searchTerm) {
+            hideDropdown(input);
             return;
         }
 
-        if (!window.locationData) return;
+        if (type === 'category' && window.disciplineData) {
+            const matches = window.disciplineData.filter(d => 
+                d.fullName.toLowerCase().includes(searchTerm) ||
+                d.initials.toLowerCase().includes(searchTerm)
+            );
+            showResults(matches.map(d => ({ text: d.fullName })), input);
+        } else if (window.locationData) {
+            let matches = [];
 
-        const uniqueBuildings = new Set();
-        window.locationData.forEach(location => {
-            if (location.fullDetails && 
-                `${location.fullDetails.Site} - ${location.fullDetails.Building}`.toLowerCase().includes(searchValue)) {
-                uniqueBuildings.add(`${location.fullDetails.Site} - ${location.fullDetails.Building}`);
+            switch (type) {
+                case 'building':
+                    const uniqueBuildings = new Set();
+                    window.locationData.forEach(location => {
+                        const buildingName = `${location.Site} - ${location.Building}`;
+                        if (buildingName.toLowerCase().includes(searchTerm)) {
+                            uniqueBuildings.add(buildingName);
+                        }
+                    });
+                    matches = Array.from(uniqueBuildings).map(b => ({ text: b }));
+                    break;
+
+                case 'department':
+                    const uniqueDepts = new Set();
+                    window.locationData.forEach(location => {
+                        if (location.Department && 
+                            location.Department.toLowerCase().includes(searchTerm)) {
+                            uniqueDepts.add(location.Department);
+                        }
+                    });
+                    matches = Array.from(uniqueDepts).map(d => ({ text: d }));
+                    break;
+
+                case 'location':
+                    const prefix = input.id.startsWith('from') ? 'from' : 'to';
+                    const buildingValue = elements[`${prefix}Building`].value;
+                    const deptValue = elements[`${prefix}Department`].value;
+
+                    matches = window.locationData.filter(location => {
+                        const locationText = `${location["Room Number"]} - ${location.Description}`;
+                        const buildingMatch = !buildingValue || 
+                            `${location.Site} - ${location.Building}` === buildingValue;
+                        const deptMatch = !deptValue || 
+                            location.Department === deptValue;
+                        
+                        return buildingMatch && deptMatch && 
+                               locationText.toLowerCase().includes(searchTerm);
+                    }).map(l => ({
+                        text: `${l["Room Number"]} - ${l.Description}`,
+                        location: l
+                    }));
+                    break;
             }
-        });
 
-        const matches = Array.from(uniqueBuildings).map(building => ({
-            name: building,
-            fullDetails: { Building: building }
-        }));
-
-        displayResults(matches, resultsContainer, input);
+            showResults(matches, input);
+        }
     }
 
-    function handleDepartmentInput(event) {
-        const input = event.target;
-        const searchValue = input.value.toLowerCase();
-        const resultsContainer = getOrCreateResultsContainer(input);
-        
-        if (!searchValue) {
-            resultsContainer.style.display = 'none';
-            return;
+    function showResults(matches, input) {
+        let dropdown = document.getElementById(`results-${input.id}`);
+        if (!dropdown) {
+            dropdown = document.createElement('div');
+            dropdown.id = `results-${input.id}`;
+            dropdown.className = 'search-results';
+            input.parentNode.appendChild(dropdown);
         }
 
-        if (!window.locationData) return;
-
-        const uniqueDepartments = new Set();
-        window.locationData.forEach(location => {
-            if (location.fullDetails && location.fullDetails.Department &&
-                location.fullDetails.Department.toLowerCase().includes(searchValue)) {
-                uniqueDepartments.add(location.fullDetails.Department);
-            }
-        });
-
-        const matches = Array.from(uniqueDepartments).map(dept => ({
-            name: dept,
-            fullDetails: { Department: dept }
-        }));
-
-        displayResults(matches, resultsContainer, input);
-    }
-
-    function handleLocationInput(event, prefix) {
-        const input = event.target;
-        const searchValue = input.value.toLowerCase();
-        const resultsContainer = getOrCreateResultsContainer(input);
-        const buildingInput = elements[`${prefix}Building`];
-        const departmentInput = elements[`${prefix}Department`];
-        
-        if (!searchValue) {
-            resultsContainer.style.display = 'none';
-            return;
-        }
-
-        if (!window.locationData) return;
-
-        const matches = window.locationData.filter(location => {
-            if (!location.fullDetails) return false;
-            
-            const buildingMatch = !buildingInput.value || 
-                `${location.fullDetails.Site} - ${location.fullDetails.Building}` === buildingInput.value;
-            const deptMatch = !departmentInput.value || 
-                location.fullDetails.Department === departmentInput.value;
-            
-            const locationText = `${location.fullDetails.RoomCode} - ${location.fullDetails.Description}`;
-            
-            return buildingMatch && deptMatch && 
-                   locationText.toLowerCase().includes(searchValue);
-        });
-
-        displayResults(matches, resultsContainer, input, true);
-    }
-
-    function handleDisciplineInput(event) {
-        const input = event.target;
-        const searchValue = input.value.toLowerCase();
-        const resultsContainer = getOrCreateResultsContainer(input);
-        
-        if (!searchValue || !window.disciplineData) {
-            resultsContainer.style.display = 'none';
-            return;
-        }
-
-        const matches = window.disciplineData.filter(discipline => 
-            discipline.name.toLowerCase().includes(searchValue) ||
-            discipline.fullDetails.initials.toLowerCase().includes(searchValue)
-        );
-
-        displayResults(matches, resultsContainer, input);
-    }
-
-    function getOrCreateResultsContainer(input) {
-        let container = document.getElementById(`results-${input.id}`);
-        
-        if (!container) {
-            container = document.createElement('div');
-            container.id = `results-${input.id}`;
-            container.className = 'search-results';
-            input.parentNode.appendChild(container);
-        }
-        
-        return container;
-    }
-
-    function displayResults(matches, container, input, isLocation = false) {
-        container.innerHTML = '';
-        
         if (!matches.length) {
-            container.style.display = 'none';
+            hideDropdown(input);
             return;
         }
 
-        container.style.display = 'block';
-
-        matches.forEach(item => {
+        dropdown.innerHTML = '';
+        matches.forEach(match => {
             const div = document.createElement('div');
             div.className = 'search-result-item';
-            
-            if (isLocation && item.fullDetails) {
-                div.textContent = `${item.fullDetails.RoomCode} - ${item.fullDetails.Description}`;
-            } else {
-                div.textContent = item.name;
-            }
-
+            div.textContent = match.text;
             div.addEventListener('click', () => {
-                input.value = div.textContent;
-                
-                if (isLocation) {
+                input.value = match.text;
+                if (match.location) {
                     const prefix = input.id.startsWith('from') ? 'from' : 'to';
-                    const buildingInput = elements[`${prefix}Building`];
-                    const deptInput = elements[`${prefix}Department`];
-                    
-                    if (!buildingInput.value && item.fullDetails) {
-                        buildingInput.value = `${item.fullDetails.Site} - ${item.fullDetails.Building}`;
-                    }
-                    if (!deptInput.value && item.fullDetails) {
-                        deptInput.value = item.fullDetails.Department;
-                    }
+                    elements[`${prefix}Building`].value = `${match.location.Site} - ${match.location.Building}`;
+                    elements[`${prefix}Department`].value = match.location.Department;
                 }
-                
-                container.style.display = 'none';
+                hideDropdown(input);
             });
-
-            container.appendChild(div);
+            dropdown.appendChild(div);
         });
+        dropdown.style.display = 'block';
+    }
+
+    function hideDropdown(input) {
+        const dropdown = document.getElementById(`results-${input.id}`);
+        if (dropdown) {
+            dropdown.style.display = 'none';
+        }
     }
 
     function handleNewTask() {
-        elements.name.value = '';
-        elements.extension.value = '';
-        elements.fromBuilding.value = '';
-        elements.fromDepartment.value = '';
-        elements.fromLocation.value = '';
-        elements.toBuilding.value = '';
-        elements.toDepartment.value = '';
-        elements.toLocation.value = '';
-        elements.category.value = '';
-        elements.description.value = '';
+        Object.values(elements).forEach(element => {
+            if (element && (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA')) {
+                element.value = '';
+            }
+        });
         elements.name.focus();
     }
 
@@ -392,7 +300,7 @@ document.addEventListener('DOMContentLoaded', function() {
         window.print();
     }
 
-        // Keyboard navigation for search results
+    // Keyboard navigation for search results
     document.addEventListener('keydown', function(e) {
         const activeInput = document.activeElement;
         if (!activeInput || !activeInput.matches('input[type="text"]')) return;
@@ -438,7 +346,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     if (activeInput.id.includes('Location')) {
                         const foundLocation = window.locationData.find(loc => 
-                            `${loc.fullDetails.RoomCode} - ${loc.fullDetails.Description}` === selected.textContent
+                            `${loc["Room Number"]} - ${loc.Description}` === selected.textContent
                         );
 
                         if (foundLocation) {
@@ -446,10 +354,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             const deptInput = elements[`${prefix}Department`];
 
                             if (!buildingInput.value) {
-                                buildingInput.value = `${foundLocation.fullDetails.Site} - ${foundLocation.fullDetails.Building}`;
+                                buildingInput.value = `${foundLocation.Site} - ${foundLocation.Building}`;
                             }
                             if (!deptInput.value) {
-                                deptInput.value = foundLocation.fullDetails.Department;
+                                deptInput.value = foundLocation.Department;
                             }
                         }
                     }
