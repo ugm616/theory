@@ -269,8 +269,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function handleSearch(event, type) {
-        const input = event.target;
-        const searchTerm = input.value.toLowerCase().trim();
+    console.log('Search triggered:', {
+        type: type,
+        value: event.target.value,
+        hasLocationData: !!window.locationData,
+        hasDisciplineData: !!window.disciplineData
+    });
+    
+    const input = event.target;
+    const searchTerm = input.value.toLowerCase();
         
         if (!searchTerm) {
             removeExistingDropdown(input);
