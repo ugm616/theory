@@ -4,10 +4,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const DB_NAME = "theoryDB";
     const DB_VERSION = 2;
     const CURRENT_USER = "ugm616";
-    const CURRENT_DATETIME = "2025-02-12 08:54:42";
+    const CURRENT_DATETIME = "2025-02-12 09:05:02";
 
     // First check if database exists and has data
     const checkRequest = indexedDB.open(DB_NAME);
+    
+    checkRequest.onerror = function(event) {
+        console.error("Database error:", event.target.error);
+        showError("Failed to open database. Please try again.");
+    };
     
     checkRequest.onsuccess = function(event) {
         const db = event.target.result;
@@ -15,21 +20,34 @@ document.addEventListener('DOMContentLoaded', function() {
         // Check if all required stores exist and have data
         if (db.objectStoreNames.contains("locations") && 
             db.objectStoreNames.contains("disciplines")) {
-            const transaction = db.transaction(["locations"], "readonly");
-            const store = transaction.objectStore("locations");
-            const countRequest = store.count();
             
-            countRequest.onsuccess = function() {
-                if (countRequest.result > 0) {
-                    // Data exists, redirect to main
-                    console.log('Database already initialized, redirecting to main...');
-                    window.location.href = 'main.html';
-                    return;
+            // Use a transaction to check both stores
+            const transaction = db.transaction(["locations", "disciplines"], "readonly");
+            const locStore = transaction.objectStore("locations");
+            const discStore = transaction.objectStore("disciplines");
+            
+            // Check counts for both stores
+            Promise.all([
+                new Promise(resolve => {
+                    const locCount = locStore.count();
+                    locCount.onsuccess = () => resolve(locCount.result);
+                }),
+                new Promise(resolve => {
+                    const discCount = discStore.count();
+                    discCount.onsuccess = () => resolve(discCount.result);
+                })
+            ]).then(([locationsCount, disciplinesCount]) => {
+                if (locationsCount > 0 && disciplinesCount > 0) {
+                    // Only redirect if we're on index.html
+                    if (window.location.pathname.endsWith('index.html')) {
+                        console.log('Database already initialized, redirecting to main...');
+                        window.location.href = 'main.html';
+                    }
                 } else {
-                    // No data, proceed with initialization
+                    // If any store is empty, reinitialize
                     initializeNewDatabase();
                 }
-            };
+            });
         } else {
             // Required stores don't exist, proceed with initialization
             initializeNewDatabase();
