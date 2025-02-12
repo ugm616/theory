@@ -1,345 +1,508 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Check if we can access the database
-    const checkRequest = indexedDB.open("theoryDB", 2);
-    
-    checkRequest.onerror = function(event) {
-        console.error("Database error in main:", event.target.error);
-        alert("Database error. Please refresh the page or return to the initialization page.");
-    };
-    
-    checkRequest.onsuccess = function(event) {
-        const db = event.target.result;
-        // Check if required stores exist
-        if (!db.objectStoreNames.contains("locations") || 
-            !db.objectStoreNames.contains("disciplines")) {
-            console.error("Required stores missing");
-            alert("Database is not properly initialized. Please return to the initialization page.");
-            return;
-        }
-        
-        // Initialize application
-        initializeApp(db);
-    };
-});
+    console.log('Page loaded: Initializing data from IndexedDB...');
 
-function initializeApp(db) {
-    // Update datetime display
+    const refNumberElement = document.getElementById('refNumber');
     const datetimeElement = document.getElementById('datetime');
-    if (datetimeElement) {
-        // Get reference number from database
-        const refTxn = db.transaction(["reference"], "readonly");
-        const refStore = refTxn.objectStore("reference");
-        const getRequest = refStore.get(1);
+    const newTaskBtn = document.getElementById('newTaskBtn');
+    const printTaskBtn = document.getElementById('printTaskBtn');
+    const fromBuildingInput = document.getElementById('fromBuilding');
+    const fromDepartmentInput = document.getElementById('fromDepartment');
+    const fromLocationInput = document.getElementById('fromLocation');
+    const toBuildingInput = document.getElementById('toBuilding');
+    const toDepartmentInput = document.getElementById('toDepartment');
+    const toLocationInput = document.getElementById('toLocation');
+    const categoryInput = document.getElementById('category');
+    const userLogin = 'ugm616';
 
-        getRequest.onsuccess = function(event) {
-            const data = event.target.result;
-            if (data) {
-                document.getElementById('refNumber').textContent = `REF: ${data.reference}`;
-                datetimeElement.innerHTML = `${data.lastUpdated}<br>${data.updatedBy}`;
+    // Check if we're on the main page
+    const isMainPage = window.location.pathname.endsWith('main.html');
+
+    // Initialize IndexedDB
+    const request = indexedDB.open("theoryDB", 2);
+
+    request.onupgradeneeded = function(event) {
+        console.log('Database upgrade needed...');
+        const db = event.target.result;
+
+        if (!db.objectStoreNames.contains("reference")) {
+            db.createObjectStore("reference", { keyPath: "id" });
+        }
+
+        if (!db.objectStoreNames.contains("locations")) {
+            db.createObjectStore("locations", { autoIncrement: true });
+        }
+
+        if (!db.objectStoreNames.contains("disciplines")) {
+            db.createObjectStore("disciplines", { autoIncrement: true });
+        }
+    };
+
+    request.onerror = function(event) {
+        console.error("Database error:", event.target.error);
+        if (isMainPage) {
+            window.location.href = 'index.html';
+        }
+    };
+
+    request.onsuccess = function(event) {
+        console.log('Database opened successfully');
+        const db = event.target.result;
+
+        const transaction = db.transaction(["locations", "disciplines"], "readonly");
+        const locStore = transaction.objectStore("locations");
+        const discStore = transaction.objectStore("disciplines");
+        const locCountRequest = locStore.count();
+        const discCountRequest = discStore.count();
+
+        Promise.all([
+            new Promise(resolve => {
+                locCountRequest.onsuccess = () => resolve(locCountRequest.result);
+            }),
+            new Promise(resolve => {
+                discCountRequest.onsuccess = () => resolve(discCountRequest.result);
+            })
+        ]).then(([locCount, discCount]) => {
+            if ((locCount === 0 || discCount === 0) && isMainPage) {
+                console.log('No data found, redirecting to initialization...');
+                window.location.href = 'index.html';
+                return;
+            } else if (locCount > 0 && !isMainPage) {
+                console.log('Data found, redirecting to main...');
+                window.location.href = 'main.html';
+                return;
             }
+
+            if (isMainPage) {
+                try {
+                    loadReferenceNumber(db);
+                    loadLocations(db);
+                    loadDisciplines(db);
+                    initializeDateTime();
+                    setupEventListeners();
+                } catch (error) {
+                    console.error('Error initializing data:', error);
+                }
+            }
+        });
+    };
+
+    function initializeDateTime() {
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+    }
+
+    function updateDateTime() {
+        const formattedDateTime = 'Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): 2025-02-12 10:55:19\nCurrent User\'s Login: ugm616\n';
+        datetimeElement.innerHTML = formattedDateTime.replace(/\n/g, '<br>');
+    }
+
+    function loadReferenceNumber(db) {
+        try {
+            const transaction = db.transaction(["reference"], "readonly");
+            const store = transaction.objectStore("reference");
+            
+            const request = store.get(1);
+            
+            request.onsuccess = function(event) {
+                const data = event.target.result;
+                if (data) {
+                    refNumberElement.textContent = `REF: ${data.reference}`;
+                }
+            };
+
+            request.onerror = function(event) {
+                console.error("Error loading reference:", event.target.error);
+            };
+        } catch (error) {
+            console.error('Error in loadReferenceNumber:', error);
+            throw error;
+        }
+    }
+
+    function loadLocations(db) {
+        try {
+            const transaction = db.transaction(["locations"], "readonly");
+            const store = transaction.objectStore("locations");
+            
+            const request = store.getAll();
+            
+            request.onsuccess = function(event) {
+                const locations = event.target.result;
+                if (locations && locations.length > 0) {
+                    locations.sort((a, b) => a.name.localeCompare(b.name));
+                }
+            };
+
+            request.onerror = function(event) {
+                console.error("Error loading locations:", event.target.error);
+                throw event.target.error;
+            };
+        } catch (error) {
+            console.error('Error in loadLocations:', error);
+            throw error;
+        }
+    }
+
+    function loadDisciplines(db) {
+        try {
+            const transaction = db.transaction(["disciplines"], "readonly");
+            const store = transaction.objectStore("disciplines");
+            
+            const request = store.getAll();
+            
+            request.onsuccess = function(event) {
+                const disciplines = event.target.result;
+                
+                if (disciplines && disciplines.length > 0) {
+                    disciplines
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .forEach(discipline => {
+                            const option = document.createElement('option');
+                            option.value = discipline.name;
+                            option.setAttribute('data-search', 
+                                Object.values(discipline.fullDetails)
+                                    .filter(val => val)
+                                    .join(' ')
+                                    .toLowerCase()
+                            );
+                            option.setAttribute('data-details', JSON.stringify(discipline.fullDetails));
+                        });
+                }
+            };
+
+            request.onerror = function(event) {
+                console.error("Error loading disciplines:", event.target.error);
+                throw event.target.error;
+            };
+        } catch (error) {
+            console.error('Error in loadDisciplines:', error);
+            throw error;
+        }
+    }
+
+    function setupEventListeners() {
+        newTaskBtn.addEventListener('click', handleNewTask);
+        printTaskBtn.addEventListener('click', handlePrintTask);
+        
+        // Setup location input handlers
+        fromBuildingInput.addEventListener('input', handleBuildingInput);
+        fromDepartmentInput.addEventListener('input', handleDepartmentInput);
+        fromLocationInput.addEventListener('input', e => handleLocationInput(e, 'from'));
+        
+        toBuildingInput.addEventListener('input', handleBuildingInput);
+        toDepartmentInput.addEventListener('input', handleDepartmentInput);
+        toLocationInput.addEventListener('input', e => handleLocationInput(e, 'to'));
+        
+        categoryInput.addEventListener('input', handleDisciplineInput);
+
+        // Close results when clicking outside
+        document.addEventListener('click', function(e) {
+            const resultsContainers = document.querySelectorAll('.search-results');
+            resultsContainers.forEach(container => {
+                if (!container.contains(e.target) && !e.target.matches('input[type="text"]')) {
+                    container.style.display = 'none';
+                }
+            });
+        });
+    }
+
+    function handleBuildingInput(event) {
+        const input = event.target;
+        const searchValue = input.value.toLowerCase();
+        const resultsContainer = getOrCreateResultsContainer(input);
+        
+        if (!searchValue) {
+            resultsContainer.style.display = 'none';
+            return;
+        }
+
+        const db = request.result;
+        const transaction = db.transaction(["locations"], "readonly");
+        const store = transaction.objectStore("locations");
+        const getAllRequest = store.getAll();
+
+        getAllRequest.onsuccess = function() {
+            const locations = getAllRequest.result;
+            const uniqueBuildings = new Set();
+            
+            locations.forEach(location => {
+                const buildingInfo = `${location.fullDetails.Site} - ${location.fullDetails.Building}`;
+                if (buildingInfo.toLowerCase().includes(searchValue)) {
+                    uniqueBuildings.add(buildingInfo);
+                }
+            });
+
+            const matches = Array.from(uniqueBuildings).map(building => ({
+                name: building,
+                fullDetails: { Building: building }
+            }));
+
+            displayResults(matches, resultsContainer, input);
         };
     }
 
-    // Setup location search
-    setupLocationSearch('from', db);
-    setupLocationSearch('to', db);
-    
-    // Setup discipline search
-    setupDisciplineSearch('category', db);
+    function handleDepartmentInput(event) {
+        const input = event.target;
+        const searchValue = input.value.toLowerCase();
+        const resultsContainer = getOrCreateResultsContainer(input);
+        
+        if (!searchValue) {
+            resultsContainer.style.display = 'none';
+            return;
+        }
 
-    // Setup buttons
-    document.getElementById('newTaskBtn').addEventListener('click', function() {
-        clearForm();
-    });
+        const db = request.result;
+        const transaction = db.transaction(["locations"], "readonly");
+        const store = transaction.objectStore("locations");
+        const getAllRequest = store.getAll();
 
-    document.getElementById('printTaskBtn').addEventListener('click', function() {
+        getAllRequest.onsuccess = function() {
+            const locations = getAllRequest.result;
+            const uniqueDepartments = new Set();
+            
+            locations.forEach(location => {
+                if (location.fullDetails.Department && 
+                    location.fullDetails.Department.toLowerCase().includes(searchValue)) {
+                    uniqueDepartments.add(location.fullDetails.Department);
+                }
+            });
+
+            const matches = Array.from(uniqueDepartments).map(dept => ({
+                name: dept,
+                fullDetails: { Department: dept }
+            }));
+
+            displayResults(matches, resultsContainer, input);
+        };
+    }
+
+    function handleLocationInput(event, prefix) {
+        const input = event.target;
+        const searchValue = input.value.toLowerCase();
+        const resultsContainer = getOrCreateResultsContainer(input);
+        const buildingInput = document.getElementById(`${prefix}Building`);
+        const departmentInput = document.getElementById(`${prefix}Department`);
+        
+        if (!searchValue || (!buildingInput.value && !departmentInput.value)) {
+            resultsContainer.style.display = 'none';
+            return;
+        }
+
+        const db = request.result;
+        const transaction = db.transaction(["locations"], "readonly");
+        const store = transaction.objectStore("locations");
+        const getAllRequest = store.getAll();
+
+        getAllRequest.onsuccess = function() {
+            const locations = getAllRequest.result;
+            const matches = locations.filter(location => {
+                const buildingMatch = !buildingInput.value || 
+                    `${location.fullDetails.Site} - ${location.fullDetails.Building}` === buildingInput.value;
+                const deptMatch = !departmentInput.value || 
+                    location.fullDetails.Department === departmentInput.value;
+                const locationText = `${location.fullDetails.RoomCode} - ${location.fullDetails.Description}`;
+                
+                return (buildingMatch || deptMatch) && 
+                       locationText.toLowerCase().includes(searchValue);
+            });
+
+            displayResults(matches, resultsContainer, input, true);
+        };
+    }
+
+    function handleDisciplineInput(event) {
+        const input = event.target;
+        const searchValue = input.value.toLowerCase();
+        const resultsContainer = getOrCreateResultsContainer(input);
+        
+        if (!searchValue) {
+            resultsContainer.style.display = 'none';
+            return;
+        }
+
+        const db = request.result;
+        const transaction = db.transaction(["disciplines"], "readonly");
+        const store = transaction.objectStore("disciplines");
+        const getAllRequest = store.getAll();
+
+        getAllRequest.onsuccess = function() {
+            const disciplines = getAllRequest.result;
+            const matches = disciplines.filter(discipline => 
+                Object.values(discipline.fullDetails)
+                    .some(value => value && value.toString().toLowerCase().includes(searchValue))
+            );
+
+            displayResults(matches, resultsContainer, input);
+        };
+    }
+
+    function getOrCreateResultsContainer(input) {
+        let container = document.getElementById(`results-${input.id}`);
+        
+        if (!container) {
+            container = document.createElement('div');
+            container.id = `results-${input.id}`;
+            container.className = 'search-results';
+            input.parentNode.insertBefore(container, input.nextSibling);
+        }
+        
+        return container;
+    }
+
+    function displayResults(matches, container, input, isLocation = false) {
+        const searchValue = input.value.toLowerCase();
+        
+        if (!matches.length || !searchValue) {
+            container.style.display = 'none';
+            return;
+        }
+
+        container.innerHTML = '';
+        container.style.display = 'block';
+
+        matches.forEach((item) => {
+            const div = document.createElement('div');
+            div.className = 'search-result-item';
+            
+            const fullDetails = item.fullDetails;
+            let info;
+            
+            if (isLocation) {
+                info = `${fullDetails.RoomCode} - ${fullDetails.Description}`;
+            } else {
+                info = Object.entries(fullDetails)
+                    .filter(([_, value]) => value)
+                    .map(([key, value]) => `${key}: ${value}`)
+                    .join(' | ');
+            }
+
+            const highlightedText = info.replace(new RegExp(searchValue, 'gi'), 
+                match => `<span class="highlight">${match}</span>`
+            );
+            
+            div.innerHTML = highlightedText;
+            
+            div.addEventListener('click', () => {
+                input.value = isLocation ? `${fullDetails.RoomCode} - ${fullDetails.Description}` : item.name;
+                
+                if (isLocation) {
+                    const prefix = input.id.startsWith('from') ? 'from' : 'to';
+                    const buildingInput = document.getElementById(`${prefix}Building`);
+                    const deptInput = document.getElementById(`${prefix}Department`);
+                    
+                    if (!buildingInput.value) {
+                        buildingInput.value = `${fullDetails.Site} - ${fullDetails.Building}`;
+                    }
+                    if (!deptInput.value) {
+                        deptInput.value = fullDetails.Department;
+                    }
+                }
+                
+                container.style.display = 'none';
+            });
+
+            div.addEventListener('mouseover', () => {
+                const selected = container.querySelector('.selected');
+                if (selected) selected.classList.remove('selected');
+                div.classList.add('selected');
+            });
+
+            container.appendChild(div);
+        });
+    }
+
+    function handleNewTask() {
+        document.getElementById('name').value = '';
+        document.getElementById('extension').value = '';
+        fromBuildingInput.value = '';
+        fromDepartmentInput.value = '';
+        fromLocationInput.value = '';
+        toBuildingInput.value = '';
+        toDepartmentInput.value = '';
+        toLocationInput.value = '';
+        categoryInput.value = '';
+        document.getElementById('description').value = '';
+        document.getElementById('name').focus();
+    }
+
+    function handlePrintTask() {
         window.print();
-    });
-}
+    }
 
-function setupLocationSearch(inputId, db) {
-    const input = document.getElementById(inputId);
-    let resultsDiv = null;
+    // Keyboard navigation
+    document.addEventListener('keydown', function(e) {
+        const activeInput = document.activeElement;
+        if (!activeInput || !activeInput.matches('input[type="text"]')) return;
 
-    input.addEventListener('input', function() {
-        const searchTerm = this.value.toLowerCase();
+        const container = document.getElementById(`results-${activeInput.id}`);
+        if (!container || container.style.display === 'none') return;
+
+        const items = container.querySelectorAll('.search-result-item');
+        const selected = container.querySelector('.selected');
         
-        if (searchTerm.length < 2) {
-            if (resultsDiv) {
-                resultsDiv.remove();
-                resultsDiv = null;
-            }
-            return;
-        }
-
-        const tx = db.transaction(['locations'], 'readonly');
-        const store = tx.objectStore('locations');
-        const request = store.openCursor();
-        const results = [];
-
-        request.onsuccess = function(event) {
-            const cursor = event.target.result;
-            if (cursor) {
-                const location = cursor.value;
-                if (location.name.toLowerCase().includes(searchTerm)) {
-                    results.push(location);
-                }
-                cursor.continue();
-            } else {
-                displayLocationResults(results, input);
-            }
-        };
-    });
-
-    // Handle keyboard navigation
-    input.addEventListener('keydown', function(e) {
-        if (!resultsDiv) return;
-        
-        const items = resultsDiv.getElementsByClassName('search-result-item');
-        let selectedItem = resultsDiv.querySelector('.selected');
-        let selectedIndex = Array.from(items).indexOf(selectedItem);
-
-        switch(e.key) {
+        switch (e.key) {
             case 'ArrowDown':
                 e.preventDefault();
-                if (selectedIndex < items.length - 1) {
-                    if (selectedItem) selectedItem.classList.remove('selected');
-                    items[selectedIndex + 1].classList.add('selected');
-                    items[selectedIndex + 1].scrollIntoView({ block: 'nearest' });
+                if (!selected) {
+                    items[0].classList.add('selected');
+                } else {
+                    const next = Array.from(items).indexOf(selected) + 1;
+                    if (next < items.length) {
+                        selected.classList.remove('selected');
+                        items[next].classList.add('selected');
+                        items[next].scrollIntoView({ block: 'nearest' });
+                    }
                 }
                 break;
+
             case 'ArrowUp':
                 e.preventDefault();
-                if (selectedIndex > 0) {
-                    if (selectedItem) selectedItem.classList.remove('selected');
-                    items[selectedIndex - 1].classList.add('selected');
-                    items[selectedIndex - 1].scrollIntoView({ block: 'nearest' });
+                if (selected) {
+                    const prev = Array.from(items).indexOf(selected) - 1;
+                    if (prev >= 0) {
+                        selected.classList.remove('selected');
+                        items[prev].classList.add('selected');
+                        items[prev].scrollIntoView({ block: 'nearest' });
+                    }
                 }
                 break;
+
             case 'Enter':
-                e.preventDefault();
-                if (selectedItem) {
-                    input.value = selectedItem.textContent;
-                    resultsDiv.remove();
-                    resultsDiv = null;
+                if (selected) {
+                    const prefix = activeInput.id.startsWith('from') ? 'from' : 'to';
+                    if (activeInput.id.includes('Location')) {
+                        // Handle location selection
+                        const locationInfo = selected.textContent.replace(/\s+/g, ' ').trim();
+                        activeInput.value = locationInfo;
+                        
+                        // If building or department is empty, fill them from the selected item
+                        const buildingInput = document.getElementById(`${prefix}Building`);
+                        const deptInput = document.getElementById(`${prefix}Department`);
+                        
+                        const fullDetails = JSON.parse(selected.getAttribute('data-details') || '{}');
+                        if (!buildingInput.value && fullDetails.Site && fullDetails.Building) {
+                            buildingInput.value = `${fullDetails.Site} - ${fullDetails.Building}`;
+                        }
+                        if (!deptInput.value && fullDetails.Department) {
+                            deptInput.value = fullDetails.Department;
+                        }
+                    } else if (activeInput.id.includes('Building')) {
+                        // Handle building selection
+                        activeInput.value = selected.textContent.replace(/\s+/g, ' ').trim();
+                    } else if (activeInput.id.includes('Department')) {
+                        // Handle department selection
+                        activeInput.value = selected.textContent.replace(/\s+/g, ' ').trim();
+                    } else {
+                        // Handle category or other fields
+                        activeInput.value = selected.textContent.replace(/\s+/g, ' ').trim();
+                    }
+                    container.style.display = 'none';
                 }
                 break;
+
             case 'Escape':
-                e.preventDefault();
-                if (resultsDiv) {
-                    resultsDiv.remove();
-                    resultsDiv = null;
-                }
+                container.style.display = 'none';
                 break;
         }
-    });
-
-    // Handle click outside
-    document.addEventListener('click', function(e) {
-        if (resultsDiv && !input.contains(e.target) && !resultsDiv.contains(e.target)) {
-            resultsDiv.remove();
-            resultsDiv = null;
-        }
-    });
-
-    function displayLocationResults(results, input) {
-        if (resultsDiv) {
-            resultsDiv.remove();
-        }
-
-        if (results.length === 0) return;
-
-        resultsDiv = document.createElement('div');
-        resultsDiv.className = 'search-results';
-
-        results.sort((a, b) => a.name.localeCompare(b.name));
-
-        results.forEach((result, index) => {
-            const div = document.createElement('div');
-            div.className = 'search-result-item';
-            div.textContent = result.name;
-            
-            div.addEventListener('click', function() {
-                input.value = result.name;
-                resultsDiv.remove();
-                resultsDiv = null;
-            });
-
-            div.addEventListener('mouseover', function() {
-                const selected = resultsDiv.querySelector('.selected');
-                if (selected) selected.classList.remove('selected');
-                this.classList.add('selected');
-            });
-
-            resultsDiv.appendChild(div);
-        });
-
-        input.parentNode.style.position = 'relative';
-        input.parentNode.appendChild(resultsDiv);
-
-        // Select first result by default
-        const firstResult = resultsDiv.querySelector('.search-result-item');
-        if (firstResult) {
-            firstResult.classList.add('selected');
-        }
-    }
-}
-
-function setupDisciplineSearch(inputId, db) {
-    const input = document.getElementById(inputId);
-    let resultsDiv = null;
-
-    input.addEventListener('input', function() {
-        const searchTerm = this.value.toLowerCase();
-        
-        if (searchTerm.length < 1) {
-            if (resultsDiv) {
-                resultsDiv.remove();
-                resultsDiv = null;
-            }
-            return;
-        }
-
-        const tx = db.transaction(['disciplines'], 'readonly');
-        const store = tx.objectStore('disciplines');
-        const request = store.openCursor();
-        const results = [];
-
-        request.onsuccess = function(event) {
-            const cursor = event.target.result;
-            if (cursor) {
-                const discipline = cursor.value;
-                if (discipline.initials.toLowerCase().includes(searchTerm) ||
-                    discipline.fullName.toLowerCase().includes(searchTerm)) {
-                    results.push(discipline);
-                }
-                cursor.continue();
-            } else {
-                displayDisciplineResults(results, input);
-            }
-        };
-    });
-
-    // Handle keyboard navigation
-    input.addEventListener('keydown', function(e) {
-        if (!resultsDiv) return;
-        
-        const items = resultsDiv.getElementsByClassName('search-result-item');
-        let selectedItem = resultsDiv.querySelector('.selected');
-        let selectedIndex = Array.from(items).indexOf(selectedItem);
-
-        switch(e.key) {
-            case 'ArrowDown':
-                e.preventDefault();
-                if (selectedIndex < items.length - 1) {
-                    if (selectedItem) selectedItem.classList.remove('selected');
-                    items[selectedIndex + 1].classList.add('selected');
-                    items[selectedIndex + 1].scrollIntoView({ block: 'nearest' });
-                }
-                break;
-            case 'ArrowUp':
-                e.preventDefault();
-                if (selectedIndex > 0) {
-                    if (selectedItem) selectedItem.classList.remove('selected');
-                    items[selectedIndex - 1].classList.add('selected');
-                    items[selectedIndex - 1].scrollIntoView({ block: 'nearest' });
-                }
-                break;
-            case 'Enter':
-                e.preventDefault();
-                if (selectedItem) {
-                    input.value = selectedItem.getAttribute('data-initials');
-                    resultsDiv.remove();
-                    resultsDiv = null;
-                }
-                break;
-            case 'Escape':
-                e.preventDefault();
-                if (resultsDiv) {
-                    resultsDiv.remove();
-                    resultsDiv = null;
-                }
-                break;
-        }
-    });
-
-    // Handle click outside
-    document.addEventListener('click', function(e) {
-        if (resultsDiv && !input.contains(e.target) && !resultsDiv.contains(e.target)) {
-            resultsDiv.remove();
-            resultsDiv = null;
-        }
-    });
-
-    function displayDisciplineResults(results, input) {
-        if (resultsDiv) {
-            resultsDiv.remove();
-        }
-
-        if (results.length === 0) return;
-
-        resultsDiv = document.createElement('div');
-        resultsDiv.className = 'search-results';
-
-        results.sort((a, b) => a.initials.localeCompare(b.initials));
-
-        results.forEach((result, index) => {
-            const div = document.createElement('div');
-            div.className = 'search-result-item';
-            div.textContent = `${result.initials} - ${result.fullName}`;
-            div.setAttribute('data-initials', result.initials);
-            
-            div.addEventListener('click', function() {
-                input.value = result.initials;
-                resultsDiv.remove();
-                resultsDiv = null;
-            });
-
-            div.addEventListener('mouseover', function() {
-                const selected = resultsDiv.querySelector('.selected');
-                if (selected) selected.classList.remove('selected');
-                this.classList.add('selected');
-            });
-
-            resultsDiv.appendChild(div);
-        });
-
-        input.parentNode.style.position = 'relative';
-        input.parentNode.appendChild(resultsDiv);
-
-        // Select first result by default
-        const firstResult = resultsDiv.querySelector('.search-result-item');
-        if (firstResult) {
-            firstResult.classList.add('selected');
-        }
-    }
-}
-
-function clearForm() {
-    // Clear all input fields
-    document.getElementById('name').value = '';
-    document.getElementById('extension').value = '';
-    document.getElementById('from').value = '';
-    document.getElementById('to').value = '';
-    document.getElementById('category').value = '';
-    document.getElementById('description').value = '';
-
-    // Focus on name field
-    document.getElementById('name').focus();
-}
-
-// Handle dark mode changes
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
-    // Update search result colors if needed
-    const searchResults = document.querySelectorAll('.search-results');
-    searchResults.forEach(results => {
-        results.style.backgroundColor = getComputedStyle(document.documentElement)
-            .getPropertyValue('--surface-color');
     });
 });
-
-// Add error handler for indexedDB errors
-function handleDBError(event) {
-    console.error('IndexedDB error:', event.target.error);
-    alert('Database error occurred. Please refresh the page.');
-}
