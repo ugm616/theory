@@ -1,20 +1,35 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Page loaded: Initializing data from IndexedDB...');
 
-    const refNumberElement = document.getElementById('refNumber');
-    const datetimeElement = document.getElementById('datetime');
-    const newTaskBtn = document.getElementById('newTaskBtn');
-    const printTaskBtn = document.getElementById('printTaskBtn');
-    const fromBuildingInput = document.getElementById('fromBuilding');
-    const fromDepartmentInput = document.getElementById('fromDepartment');
-    const fromLocationInput = document.getElementById('fromLocation');
-    const toBuildingInput = document.getElementById('toBuilding');
-    const toDepartmentInput = document.getElementById('toDepartment');
-    const toLocationInput = document.getElementById('toLocation');
-    const categoryInput = document.getElementById('category');
-    const userLogin = 'ugm616';
+    // Get DOM elements with null checks
+    const elements = {
+        refNumber: document.getElementById('refNumber'),
+        datetime: document.getElementById('datetime'),
+        newTaskBtn: document.getElementById('newTaskBtn'),
+        printTaskBtn: document.getElementById('printTaskBtn'),
+        name: document.getElementById('name'),
+        extension: document.getElementById('extension'),
+        fromBuilding: document.getElementById('fromBuilding'),
+        fromDepartment: document.getElementById('fromDepartment'),
+        fromLocation: document.getElementById('fromLocation'),
+        toBuilding: document.getElementById('toBuilding'),
+        toDepartment: document.getElementById('toDepartment'),
+        toLocation: document.getElementById('toLocation'),
+        category: document.getElementById('category'),
+        description: document.getElementById('description')
+    };
 
-    // Check if we're on the main page
+    // Validate that all required elements exist
+    const missingElements = Object.entries(elements)
+        .filter(([key, element]) => !element)
+        .map(([key]) => key);
+
+    if (missingElements.length > 0) {
+        console.error('Missing DOM elements:', missingElements);
+        return; // Exit if required elements are missing
+    }
+
+    const userLogin = 'ugm616';
     const isMainPage = window.location.pathname.endsWith('main.html');
 
     // Initialize IndexedDB
@@ -92,8 +107,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateDateTime() {
-        const formattedDateTime = 'Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): 2025-02-12 10:55:19\nCurrent User\'s Login: ugm616\n';
-        datetimeElement.innerHTML = formattedDateTime.replace(/\n/g, '<br>');
+        const formattedDateTime = 'Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): 2025-02-12 11:09:40\nCurrent User\'s Login: ugm616\n';
+        elements.datetime.innerHTML = formattedDateTime.replace(/\n/g, '<br>');
     }
 
     function loadReferenceNumber(db) {
@@ -106,7 +121,7 @@ document.addEventListener('DOMContentLoaded', function() {
             request.onsuccess = function(event) {
                 const data = event.target.result;
                 if (data) {
-                    refNumberElement.textContent = `REF: ${data.reference}`;
+                    elements.refNumber.textContent = `REF: ${data.reference}`;
                 }
             };
 
@@ -152,21 +167,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             request.onsuccess = function(event) {
                 const disciplines = event.target.result;
-                
                 if (disciplines && disciplines.length > 0) {
-                    disciplines
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .forEach(discipline => {
-                            const option = document.createElement('option');
-                            option.value = discipline.name;
-                            option.setAttribute('data-search', 
-                                Object.values(discipline.fullDetails)
-                                    .filter(val => val)
-                                    .join(' ')
-                                    .toLowerCase()
-                            );
-                            option.setAttribute('data-details', JSON.stringify(discipline.fullDetails));
-                        });
+                    disciplines.sort((a, b) => a.name.localeCompare(b.name));
                 }
             };
 
@@ -181,19 +183,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function setupEventListeners() {
-        newTaskBtn.addEventListener('click', handleNewTask);
-        printTaskBtn.addEventListener('click', handlePrintTask);
+        elements.newTaskBtn.addEventListener('click', handleNewTask);
+        elements.printTaskBtn.addEventListener('click', handlePrintTask);
         
-        // Setup location input handlers
-        fromBuildingInput.addEventListener('input', handleBuildingInput);
-        fromDepartmentInput.addEventListener('input', handleDepartmentInput);
-        fromLocationInput.addEventListener('input', e => handleLocationInput(e, 'from'));
+        elements.fromBuilding.addEventListener('input', handleBuildingInput);
+        elements.fromDepartment.addEventListener('input', handleDepartmentInput);
+        elements.fromLocation.addEventListener('input', e => handleLocationInput(e, 'from'));
         
-        toBuildingInput.addEventListener('input', handleBuildingInput);
-        toDepartmentInput.addEventListener('input', handleDepartmentInput);
-        toLocationInput.addEventListener('input', e => handleLocationInput(e, 'to'));
+        elements.toBuilding.addEventListener('input', handleBuildingInput);
+        elements.toDepartment.addEventListener('input', handleDepartmentInput);
+        elements.toLocation.addEventListener('input', e => handleLocationInput(e, 'to'));
         
-        categoryInput.addEventListener('input', handleDisciplineInput);
+        elements.category.addEventListener('input', handleDisciplineInput);
 
         // Close results when clicking outside
         document.addEventListener('click', function(e) {
@@ -226,9 +227,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const uniqueBuildings = new Set();
             
             locations.forEach(location => {
-                const buildingInfo = `${location.fullDetails.Site} - ${location.fullDetails.Building}`;
-                if (buildingInfo.toLowerCase().includes(searchValue)) {
-                    uniqueBuildings.add(buildingInfo);
+                if (location.fullDetails) {
+                    const buildingInfo = `${location.fullDetails.Site} - ${location.fullDetails.Building}`;
+                    if (buildingInfo.toLowerCase().includes(searchValue)) {
+                        uniqueBuildings.add(buildingInfo);
+                    }
                 }
             });
 
@@ -261,7 +264,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const uniqueDepartments = new Set();
             
             locations.forEach(location => {
-                if (location.fullDetails.Department && 
+                if (location.fullDetails && location.fullDetails.Department && 
                     location.fullDetails.Department.toLowerCase().includes(searchValue)) {
                     uniqueDepartments.add(location.fullDetails.Department);
                 }
@@ -280,10 +283,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const input = event.target;
         const searchValue = input.value.toLowerCase();
         const resultsContainer = getOrCreateResultsContainer(input);
-        const buildingInput = document.getElementById(`${prefix}Building`);
-        const departmentInput = document.getElementById(`${prefix}Department`);
+        const buildingInput = elements[`${prefix}Building`];
+        const departmentInput = elements[`${prefix}Department`];
         
-        if (!searchValue || (!buildingInput.value && !departmentInput.value)) {
+        if (!searchValue) {
             resultsContainer.style.display = 'none';
             return;
         }
@@ -296,13 +299,15 @@ document.addEventListener('DOMContentLoaded', function() {
         getAllRequest.onsuccess = function() {
             const locations = getAllRequest.result;
             const matches = locations.filter(location => {
+                if (!location.fullDetails) return false;
+                
                 const buildingMatch = !buildingInput.value || 
                     `${location.fullDetails.Site} - ${location.fullDetails.Building}` === buildingInput.value;
                 const deptMatch = !departmentInput.value || 
                     location.fullDetails.Department === departmentInput.value;
                 const locationText = `${location.fullDetails.RoomCode} - ${location.fullDetails.Description}`;
                 
-                return (buildingMatch || deptMatch) && 
+                return buildingMatch && deptMatch && 
                        locationText.toLowerCase().includes(searchValue);
             });
 
@@ -328,7 +333,7 @@ document.addEventListener('DOMContentLoaded', function() {
         getAllRequest.onsuccess = function() {
             const disciplines = getAllRequest.result;
             const matches = disciplines.filter(discipline => 
-                Object.values(discipline.fullDetails)
+                discipline.fullDetails && Object.values(discipline.fullDetails)
                     .some(value => value && value.toString().toLowerCase().includes(searchValue))
             );
 
@@ -364,16 +369,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const div = document.createElement('div');
             div.className = 'search-result-item';
             
-            const fullDetails = item.fullDetails;
             let info;
-            
-            if (isLocation) {
-                info = `${fullDetails.RoomCode} - ${fullDetails.Description}`;
+            if (isLocation && item.fullDetails) {
+                info = `${item.fullDetails.RoomCode} - ${item.fullDetails.Description}`;
             } else {
-                info = Object.entries(fullDetails)
-                    .filter(([_, value]) => value)
-                    .map(([key, value]) => `${key}: ${value}`)
-                    .join(' | ');
+                info = item.name;
             }
 
             const highlightedText = info.replace(new RegExp(searchValue, 'gi'), 
@@ -383,18 +383,18 @@ document.addEventListener('DOMContentLoaded', function() {
             div.innerHTML = highlightedText;
             
             div.addEventListener('click', () => {
-                input.value = isLocation ? `${fullDetails.RoomCode} - ${fullDetails.Description}` : item.name;
+                input.value = info;
                 
                 if (isLocation) {
                     const prefix = input.id.startsWith('from') ? 'from' : 'to';
-                    const buildingInput = document.getElementById(`${prefix}Building`);
-                    const deptInput = document.getElementById(`${prefix}Department`);
+                    const buildingInput = elements[`${prefix}Building`];
+                    const deptInput = elements[`${prefix}Department`];
                     
-                    if (!buildingInput.value) {
-                        buildingInput.value = `${fullDetails.Site} - ${fullDetails.Building}`;
+                    if (!buildingInput.value && item.fullDetails) {
+                        buildingInput.value = `${item.fullDetails.Site} - ${item.fullDetails.Building}`;
                     }
-                    if (!deptInput.value) {
-                        deptInput.value = fullDetails.Department;
+                    if (!deptInput.value && item.fullDetails) {
+                        deptInput.value = item.fullDetails.Department;
                     }
                 }
                 
@@ -412,17 +412,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function handleNewTask() {
-        document.getElementById('name').value = '';
-        document.getElementById('extension').value = '';
-        fromBuildingInput.value = '';
-        fromDepartmentInput.value = '';
-        fromLocationInput.value = '';
-        toBuildingInput.value = '';
-        toDepartmentInput.value = '';
-        toLocationInput.value = '';
-        categoryInput.value = '';
-        document.getElementById('description').value = '';
-        document.getElementById('name').focus();
+        elements.name.value = '';
+        elements.extension.value = '';
+        elements.fromBuilding.value = '';
+        elements.fromDepartment.value = '';
+        elements.fromLocation.value = '';
+        elements.toBuilding.value = '';
+        elements.toDepartment.value = '';
+        elements.toLocation.value = '';
+        elements.category.value = '';
+        elements.description.value = '';
+        elements.name.focus();
     }
 
     function handlePrintTask() {
@@ -443,9 +443,10 @@ document.addEventListener('DOMContentLoaded', function() {
         switch (e.key) {
             case 'ArrowDown':
                 e.preventDefault();
-                if (!selected) {
+                if (!selected && items.length > 0) {
                     items[0].classList.add('selected');
-                } else {
+                    items[0].scrollIntoView({ block: 'nearest' });
+                } else if (selected) {
                     const next = Array.from(items).indexOf(selected) + 1;
                     if (next < items.length) {
                         selected.classList.remove('selected');
@@ -472,14 +473,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     const prefix = activeInput.id.startsWith('from') ? 'from' : 'to';
                     if (activeInput.id.includes('Location')) {
                         // Handle location selection
-                        const locationInfo = selected.textContent.replace(/\s+/g, ' ').trim();
-                        activeInput.value = locationInfo;
-                        
-                        // If building or department is empty, fill them from the selected item
-                        const buildingInput = document.getElementById(`${prefix}Building`);
-                        const deptInput = document.getElementById(`${prefix}Department`);
-                        
                         const fullDetails = JSON.parse(selected.getAttribute('data-details') || '{}');
+                        activeInput.value = `${fullDetails.RoomCode} - ${fullDetails.Description}`;
+                        
+                        const buildingInput = elements[`${prefix}Building`];
+                        const deptInput = elements[`${prefix}Department`];
+                        
                         if (!buildingInput.value && fullDetails.Site && fullDetails.Building) {
                             buildingInput.value = `${fullDetails.Site} - ${fullDetails.Building}`;
                         }
@@ -502,6 +501,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
             case 'Escape':
                 container.style.display = 'none';
+                break;
+
+            case 'Tab':
+                // Handle tab key to move between fields
+                if (selected) {
+                    e.preventDefault();
+                    activeInput.value = selected.textContent.replace(/\s+/g, ' ').trim();
+                    container.style.display = 'none';
+                }
                 break;
         }
     });
