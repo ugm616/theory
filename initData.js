@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const DB_NAME = "theoryDB";
     const DB_VERSION = 2;
     const CURRENT_USER = "ugm616";
-    const CURRENT_DATETIME = "2025-02-12 09:18:18";
+    const CURRENT_DATETIME = "2025-02-12 09:33:21";
 
     updateStatus("Checking database status...");
 
@@ -44,15 +44,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateStatus(`Found ${locationsCount} locations and ${disciplinesCount} disciplines...`);
                 
                 if (locationsCount > 0 && disciplinesCount > 0) {
-                    // Only redirect if we're on index.html
-                    if (window.location.pathname.endsWith('index.html')) {
-                        updateStatus("Database already initialized, redirecting to main...");
-                        setTimeout(() => window.location.href = 'main.html', 1000);
-                    }
+                    // Remove the pathname check since we always want to redirect if data exists
+                    updateStatus("Database already initialized, redirecting to main...");
+                    console.log("Redirecting to main.html...");
+                    // Force the redirect with a small delay
+                    setTimeout(() => {
+                        try {
+                            window.location.replace('main.html');
+                        } catch (e) {
+                            console.error("Redirect failed:", e);
+                            // Fallback method
+                            window.location.href = 'main.html';
+                        }
+                    }, 500);
                 } else {
                     updateStatus("Empty data stores found, reinitializing...");
                     initializeNewDatabase();
                 }
+            }).catch(error => {
+                console.error("Error checking stores:", error);
+                showError("Failed to check data stores. Please try again.");
             });
         } else {
             updateStatus("Required stores missing, creating new database...");
@@ -267,7 +278,15 @@ document.addEventListener('DOMContentLoaded', function() {
             txn.oncomplete = function() {
                 console.log("Database initialization complete");
                 updateStatus("Initialization complete, redirecting...");
-                setTimeout(() => window.location.href = 'main.html', 1000);
+                setTimeout(() => {
+                    try {
+                        window.location.replace('main.html');
+                    } catch (e) {
+                        console.error("Redirect failed:", e);
+                        // Fallback method
+                        window.location.href = 'main.html';
+                    }
+                }, 500);
             };
 
             txn.onerror = function(event) {
@@ -280,4 +299,19 @@ document.addEventListener('DOMContentLoaded', function() {
             showError(`Failed to load data files: ${error.message}`);
         });
     }
+
+    // Add a function to force redirect if needed
+    function forceRedirect() {
+        console.log("Forcing redirect to main.html");
+        window.location.replace('main.html');
+    }
+
+    // Add event listener for when the page has been loaded for too long
+    setTimeout(() => {
+        const statusElement = document.getElementById('statusMessage');
+        if (statusElement && document.location.pathname.includes('index.html')) {
+            console.log("Page has been on index.html too long, forcing redirect...");
+            forceRedirect();
+        }
+    }, 10000); // 10 second timeout
 });
