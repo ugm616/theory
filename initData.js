@@ -73,14 +73,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function redirectToMain() {
         try {
+            console.log("Attempting to redirect to main.html using replace");
             window.location.replace('main.html');
         } catch (e1) {
             console.error("First redirect attempt failed:", e1);
             try {
+                console.log("Attempting to redirect to main.html using href");
                 window.location.href = 'main.html';
             } catch (e2) {
                 console.error("Second redirect attempt failed:", e2);
                 try {
+                    console.log("Attempting to redirect to main.html using assign");
                     window.location.assign('main.html');
                 } catch (e3) {
                     console.error("All redirect attempts failed:", e3);
@@ -290,6 +293,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateStatus("Initialization complete, redirecting...");
                 setTimeout(() => {
                     try {
+                        console.log("Attempting to redirect to main.html after initialization");
                         window.location.replace('main.html');
                     } catch (e) {
                         console.error("Redirect failed:", e);
