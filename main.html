@@ -180,6 +180,21 @@
             display: none !important;
         }
 
+        .location-row {
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        .location-inputs {
+            display: flex;
+            gap: 10px;
+            margin-left: 80px;
+        }
+
+        .location-inputs input[type="text"] {
+            flex: 1;
+        }
+
         @media print {
             .no-print {
                 display: none;
@@ -201,7 +216,7 @@
                 <img src="logo.png" alt="Logo" class="logo">
                 <span id="refNumber">REF: Loading...</span>
             </div>
-            <span id="datetime">2025-02-10 15:34:36<br>ugm616</span>
+            <span id="datetime">Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): 2025-02-12 10:52:38<br>Current User's Login: ugm616</span>
         </div>
     </div>
 
@@ -217,22 +232,34 @@
             </div>
         </div>
 
-        <div class="row">
-            <label for="from">From:</label>
-            <input type="text" id="from" autocomplete="off">
+        <div class="location-row">
+            <label>From:</label>
+            <div class="location-inputs">
+                <input type="text" id="fromBuilding" placeholder="Building" autocomplete="off">
+                <input type="text" id="fromDepartment" placeholder="Department" autocomplete="off">
+                <input type="text" id="fromLocation" placeholder="Location" autocomplete="off">
+            </div>
         </div>
-        <div class="row">
-            <label for="to">To:</label>
-            <input type="text" id="to" autocomplete="off">
+
+        <div class="location-row">
+            <label>To:</label>
+            <div class="location-inputs">
+                <input type="text" id="toBuilding" placeholder="Building" autocomplete="off">
+                <input type="text" id="toDepartment" placeholder="Department" autocomplete="off">
+                <input type="text" id="toLocation" placeholder="Location" autocomplete="off">
+            </div>
         </div>
+
         <div class="row">
             <label for="category">Category:</label>
             <input type="text" id="category" autocomplete="off">
         </div>
+
         <div class="row">
             <label for="description">Description:</label>
             <textarea id="description" rows="4"></textarea>
         </div>
+
         <div class="button-group no-print">
             <button id="newTaskBtn">New Task</button>
             <button id="printTaskBtn">Print Task</button>
