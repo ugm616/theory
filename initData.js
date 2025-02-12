@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const DB_NAME = "theoryDB";
     const DB_VERSION = 2; // Increased version for new stores
     const CURRENT_USER = "ugm616"; // Current user from system
-    const CURRENT_DATETIME = "2025-02-12 08:22:07"; // Current UTC datetime
+    const CURRENT_DATETIME = "2025-02-12 08:42:22"; // Current UTC datetime
 
     // First check if database exists and has data
     const checkRequest = indexedDB.open(DB_NAME);
@@ -14,7 +14,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Check if all required stores exist and have data
         if (db.objectStoreNames.contains("locations") && 
-            db.objectStoreNames.contains("privileges") && 
             db.objectStoreNames.contains("disciplines")) {
             const transaction = db.transaction(["locations"], "readonly");
             const store = transaction.objectStore("locations");
@@ -53,10 +52,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 if (!db.objectStoreNames.contains("locations")) {
                     db.createObjectStore("locations", { autoIncrement: true });
-                }
-
-                if (!db.objectStoreNames.contains("privileges")) {
-                    db.createObjectStore("privileges", { keyPath: "initials" });
                 }
 
                 if (!db.objectStoreNames.contains("disciplines")) {
@@ -180,27 +175,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!response.ok) throw new Error('Failed to load locations.csv');
                     return response.text();
                 }),
-            fetch('privileges.csv')
-                .then(response => {
-                    if (!response.ok) throw new Error('Failed to load privileges.csv');
-                    return response.text();
-                }),
             fetch('disciplines.csv')
                 .then(response => {
                     if (!response.ok) throw new Error('Failed to load disciplines.csv');
                     return response.text();
                 })
         ])
-        .then(([locationsData, privilegesData, disciplinesData]) => {
+        .then(([locationsData, disciplinesData]) => {
             updateStatus("Processing data...");
             
-            // Parse each CSV file (privileges and disciplines use headers)
+            // Parse each CSV file (disciplines use headers)
             const locations = parseCSV(locationsData, false);
-            const privileges = parseCSV(privilegesData, true);
             const disciplines = parseCSV(disciplinesData, true);
 
             // Store all data in a single transaction
-            const txn = db.transaction(["locations", "privileges", "disciplines"], "readwrite");
+            const txn = db.transaction(["locations", "disciplines"], "readwrite");
             
             // Store locations
             const locStore = txn.objectStore("locations");
@@ -209,16 +198,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 locStore.add({
                     name: locationName,
                     fullDetails: location,
-                    lastUpdated: CURRENT_DATETIME,
-                    updatedBy: CURRENT_USER
-                });
-            });
-
-            // Store privileges
-            const privStore = txn.objectStore("privileges");
-            privileges.forEach(privilege => {
-                privStore.add({
-                    ...privilege,
                     lastUpdated: CURRENT_DATETIME,
                     updatedBy: CURRENT_USER
                 });
