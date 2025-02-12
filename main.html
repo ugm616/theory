@@ -67,6 +67,7 @@
             padding: 15px;
             border-radius: 4px;
             box-shadow: 0 2px 5px var(--shadow-color);
+            position: relative; /* Added to establish stacking context */
         }
 
         .row {
@@ -84,10 +85,10 @@
         }
 
         .input-group {
+            position: relative; /* Added to contain dropdowns */
             display: flex;
             align-items: center;
             flex: 1;
-            position: relative;
         }
 
         .input-group label {
@@ -101,12 +102,14 @@
             display: flex;
             gap: 10px;
             align-items: center;
+            position: relative; /* Added for proper dropdown containment */
         }
 
         .location-section .input-group {
             flex: 1;
             display: flex;
             align-items: center;
+            position: relative; /* Ensure relative positioning */
         }
 
         .location-section label {
@@ -129,6 +132,8 @@
             background-color: var(--surface-color);
             color: var(--text-color);
             font-size: 12px;
+            position: relative; /* Added for proper z-indexing */
+            z-index: 1; /* Ensure input is above other elements */
         }
 
         textarea {
@@ -159,16 +164,18 @@
         }
 
         .search-results {
-            position: fixed;
+            position: absolute;
             background: var(--surface-color);
             border: 1px solid var(--border-color);
             border-radius: 4px;
             max-height: 200px;
             overflow-y: auto;
-            width: auto;
+            width: 100%;
             min-width: 200px;
             box-shadow: 0 2px 8px var(--shadow-color);
             z-index: 1000;
+            top: 100%;
+            left: 0;
             margin-top: 2px;
             font-size: 12px;
         }
@@ -201,6 +208,16 @@
             display: none !important;
         }
 
+        /* Ensure dropdowns appear above other content */
+        .content > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .input-group:focus-within .search-results {
+            display: block;
+        }
+
         @media print {
             .no-print {
                 display: none;
@@ -222,7 +239,7 @@
                 <img src="logo.png" alt="Logo" class="logo">
                 <span id="refNumber">REF: Loading...</span>
             </div>
-            <span id="datetime">2025-02-12 13:09:55 | ugm616</span>
+            <span id="datetime">2025-02-12 18:49:48 | ugm616</span>
         </div>
     </div>
 
