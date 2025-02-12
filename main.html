@@ -180,19 +180,22 @@
             display: none !important;
         }
 
-        .location-row {
-            margin-bottom: 10px;
-            position: relative;
+        .location-section {
+            margin-bottom: 15px;
+            border-left: 2px solid var(--border-color);
+            padding-left: 10px;
         }
 
-        .location-inputs {
-            display: flex;
-            gap: 10px;
-            margin-left: 80px;
+        .location-section .row {
+            margin-bottom: 5px;
         }
 
-        .location-inputs input[type="text"] {
-            flex: 1;
+        .location-section .row:first-child {
+            margin-top: 0;
+        }
+
+        .location-section label {
+            min-width: 60px;
         }
 
         @media print {
@@ -216,7 +219,7 @@
                 <img src="logo.png" alt="Logo" class="logo">
                 <span id="refNumber">REF: Loading...</span>
             </div>
-            <span id="datetime">Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): 2025-02-12 10:52:38<br>Current User's Login: ugm616</span>
+            <span id="datetime">2025-02-12 12:53:05<br>ugm616</span>
         </div>
     </div>
 
@@ -232,21 +235,33 @@
             </div>
         </div>
 
-        <div class="location-row">
-            <label>From:</label>
-            <div class="location-inputs">
-                <input type="text" id="fromBuilding" placeholder="Building" autocomplete="off">
-                <input type="text" id="fromDepartment" placeholder="Department" autocomplete="off">
-                <input type="text" id="fromLocation" placeholder="Location" autocomplete="off">
+        <div class="location-section">
+            <div class="row">
+                <label for="fromBuilding">From:</label>
+                <input type="text" id="fromBuilding" autocomplete="off" placeholder="Building">
+            </div>
+            <div class="row">
+                <label for="fromDepartment">Dept:</label>
+                <input type="text" id="fromDepartment" autocomplete="off" placeholder="Department">
+            </div>
+            <div class="row">
+                <label for="fromLocation">Location:</label>
+                <input type="text" id="fromLocation" autocomplete="off" placeholder="Room">
             </div>
         </div>
 
-        <div class="location-row">
-            <label>To:</label>
-            <div class="location-inputs">
-                <input type="text" id="toBuilding" placeholder="Building" autocomplete="off">
-                <input type="text" id="toDepartment" placeholder="Department" autocomplete="off">
-                <input type="text" id="toLocation" placeholder="Location" autocomplete="off">
+        <div class="location-section">
+            <div class="row">
+                <label for="toBuilding">To:</label>
+                <input type="text" id="toBuilding" autocomplete="off" placeholder="Building">
+            </div>
+            <div class="row">
+                <label for="toDepartment">Dept:</label>
+                <input type="text" id="toDepartment" autocomplete="off" placeholder="Department">
+            </div>
+            <div class="row">
+                <label for="toLocation">Location:</label>
+                <input type="text" id="toLocation" autocomplete="off" placeholder="Room">
             </div>
         </div>
 
@@ -254,12 +269,10 @@
             <label for="category">Category:</label>
             <input type="text" id="category" autocomplete="off">
         </div>
-
         <div class="row">
             <label for="description">Description:</label>
             <textarea id="description" rows="4"></textarea>
         </div>
-
         <div class="button-group no-print">
             <button id="newTaskBtn">New Task</button>
             <button id="printTaskBtn">Print Task</button>
