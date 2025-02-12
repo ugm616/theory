@@ -88,9 +88,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateDateTime() {
-        elements.datetime.innerHTML = 'Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): 2025-02-12 14:02:30<br>Current User\'s Login: ugm616';
+        elements.datetime.innerHTML = 'Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): 2025-02-12 18:57:36<br>Current User\'s Login: ugm616';
     }
 
+    // [Previous database-related functions remain unchanged]
     function loadReferenceNumber(db) {
         try {
             const transaction = db.transaction(["reference"], "readonly");
@@ -148,30 +149,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function setupEventListeners() {
-        // Set up input event listeners for search functionality
-        elements.fromBuilding.addEventListener('input', (e) => handleSearch(e, 'building'));
-        elements.fromDepartment.addEventListener('input', (e) => handleSearch(e, 'department'));
-        elements.fromLocation.addEventListener('input', (e) => handleSearch(e, 'location'));
-        elements.toBuilding.addEventListener('input', (e) => handleSearch(e, 'building'));
-        elements.toDepartment.addEventListener('input', (e) => handleSearch(e, 'department'));
-        elements.toLocation.addEventListener('input', (e) => handleSearch(e, 'location'));
-        elements.category.addEventListener('input', (e) => handleSearch(e, 'category'));
-
-        // Set up button event listeners
-        elements.newTaskBtn.addEventListener('click', handleNewTask);
-        elements.printTaskBtn.addEventListener('click', handlePrintTask);
-
-        // Close dropdowns when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!e.target.matches('input[type="text"]') && !e.target.closest('.search-results')) {
-                document.querySelectorAll('.search-results').forEach(dropdown => {
-                    removeExistingDropdown(dropdown);
-                });
-            }
-        });
-    }
-
     function removeExistingDropdown(input) {
         const existingDropdown = document.getElementById(`results-${input.id}`);
         if (existingDropdown) {
@@ -180,6 +157,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function createAndShowDropdown(matches, input) {
+        removeExistingDropdown(input);
+        
+        const inputGroup = input.closest('.input-group');
+        if (!inputGroup) return;
+
         const dropdown = document.createElement('div');
         dropdown.id = `results-${input.id}`;
         dropdown.className = 'search-results';
@@ -188,7 +170,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const item = document.createElement('div');
             item.className = 'search-result-item';
             item.textContent = match.text;
-            item.dataset.value = match.value;
             if (index === 0) item.classList.add('selected');
             
             item.addEventListener('click', (e) => {
@@ -204,19 +185,16 @@ document.addEventListener('DOMContentLoaded', function() {
             dropdown.appendChild(item);
         });
 
-        // Position the dropdown
-        const rect = input.getBoundingClientRect();
-        dropdown.style.position = 'fixed';
-        dropdown.style.width = `${input.offsetWidth}px`;
-        dropdown.style.top = `${rect.bottom + 2}px`;
-        dropdown.style.left = `${rect.left}px`;
-        
-        document.body.appendChild(dropdown);
-        
-        // Adjust position if dropdown would go off screen
+        inputGroup.appendChild(dropdown);
+
         const dropdownRect = dropdown.getBoundingClientRect();
-        if (dropdownRect.bottom > window.innerHeight) {
-            dropdown.style.top = `${rect.top - dropdownRect.height - 2}px`;
+        const viewportHeight = window.innerHeight;
+        
+        if (dropdownRect.bottom > viewportHeight) {
+            dropdown.style.bottom = '100%';
+            dropdown.style.top = 'auto';
+            dropdown.style.marginTop = '0';
+            dropdown.style.marginBottom = '2px';
         }
     }
 
@@ -240,13 +218,62 @@ document.addEventListener('DOMContentLoaded', function() {
         input.focus();
     }
 
+    function setupEventListeners() {
+        elements.fromBuilding.addEventListener('input', (e) => handleSearch(e, 'building'));
+        elements.fromDepartment.addEventListener('input', (e) => handleSearch(e, 'department'));
+        elements.fromLocation.addEventListener('input', (e) => handleSearch(e, 'location'));
+        elements.toBuilding.addEventListener('input', (e) => handleSearch(e, 'building'));
+        elements.toDepartment.addEventListener('input', (e) => handleSearch(e, 'department'));
+        elements.toLocation.addEventListener('input', (e) => handleSearch(e, 'location'));
+        elements.category.addEventListener('input', (e) => handleSearch(e, 'category'));
+
+        elements.newTaskBtn.addEventListener('click', handleNewTask);
+        elements.printTaskBtn.addEventListener('click', handlePrintTask);
+
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.matches('input[type="text"]') && !e.target.closest('.search-results')) {
+                document.querySelectorAll('.search-results').forEach(dropdown => {
+                    removeExistingDropdown(dropdown);
+                });
+            }
+        });
+
+        window.addEventListener('resize', debounce(function() {
+            const activeDropdowns = document.querySelectorAll('.search-results');
+            activeDropdowns.forEach(dropdown => {
+                const input = document.getElementById(dropdown.id.replace('results-', ''));
+                if (input) {
+                    const matches = Array.from(dropdown.children).map(child => ({
+                        text: child.textContent,
+                        value: child.dataset.value
+                    }));
+                    createAndShowDropdown(matches, input);
+                }
+            });
+        }, 150));
+    }
+
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
     function handleSearch(event, type) {
         const input = event.target;
         const searchTerm = input.value.toLowerCase().trim();
         
-        removeExistingDropdown(input);
-        
         if (!searchTerm) {
+            removeExistingDropdown(input);
             return;
         }
 
@@ -258,14 +285,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     d.fullName.toLowerCase().includes(searchTerm) ||
                     d.initials.toLowerCase().includes(searchTerm)
                 )
-                .map(d => ({ 
-                    text: d.fullName,
-                    value: d.initials 
-                }));
+                .map(d => ({ text: d.fullName }));
         } else if (window.locationData) {
             const prefix = input.id.startsWith('from') ? 'from' : 'to';
-            const buildingInput = elements[`${prefix}Building`];
-            const deptInput = elements[`${prefix}Department`];
             
             switch (type) {
                 case 'building':
@@ -276,14 +298,12 @@ document.addEventListener('DOMContentLoaded', function() {
                             uniqueBuildings.add(buildingName);
                         }
                     });
-                    matches = Array.from(uniqueBuildings)
-                        .map(b => ({ text: b, value: b }));
+                    matches = Array.from(uniqueBuildings).map(b => ({ text: b }));
                     break;
 
                 case 'department':
-                    const selectedBuilding = buildingInput.value;
+                    const selectedBuilding = elements[`${prefix}Building`].value;
                     const uniqueDepts = new Set();
-                    
                     window.locationData.forEach(location => {
                         const buildingName = `${location.Site} - ${location.Building}`;
                         if (location.Department && 
@@ -292,13 +312,12 @@ document.addEventListener('DOMContentLoaded', function() {
                             uniqueDepts.add(location.Department);
                         }
                     });
-                    matches = Array.from(uniqueDepts)
-                        .map(d => ({ text: d, value: d }));
+                    matches = Array.from(uniqueDepts).map(d => ({ text: d }));
                     break;
 
                 case 'location':
-                    const buildingValue = buildingInput.value;
-                    const deptValue = deptInput.value;
+                    const buildingValue = elements[`${prefix}Building`].value;
+                    const deptValue = elements[`${prefix}Department`].value;
                     
                     matches = window.locationData
                         .filter(location => {
@@ -308,13 +327,11 @@ document.addEventListener('DOMContentLoaded', function() {
                             const deptMatch = !deptValue || 
                                 location.Department === deptValue;
                             
-                            return buildingMatch && 
-                                   deptMatch && 
+                            return buildingMatch && deptMatch && 
                                    locationText.toLowerCase().includes(searchTerm);
                         })
                         .map(l => ({
                             text: `${l["Room Number"]} - ${l.Description}`,
-                            value: l["Room Number"],
                             location: l
                         }));
                     break;
@@ -323,6 +340,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (matches.length > 0) {
             createAndShowDropdown(matches, input);
+        } else {
+            removeExistingDropdown(input);
         }
     }
 
@@ -339,7 +358,7 @@ document.addEventListener('DOMContentLoaded', function() {
         window.print();
     }
 
-    // Keyboard navigation for search results
+    // Keyboard navigation
     document.addEventListener('keydown', function(e) {
         const activeInput = document.activeElement;
         if (!activeInput || !activeInput.matches('input[type="text"]')) return;
@@ -398,25 +417,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 break;
 
             case 'Tab':
-                if (selected) {
-                    e.preventDefault();
-                    const matchText = selected.textContent;
-                    const matchLocation = window.locationData.find(loc => 
-                        `${loc["Room Number"]} - ${loc.Description}` === matchText
-                    );
-                    selectDropdownItem(
-                        { text: matchText, location: matchLocation },
-                        activeInput
-                    );
-                    
-                    // Move to next input
-                    const inputs = Array.from(document.querySelectorAll('input[type="text"], textarea'));
-                    const currentIndex = inputs.indexOf(activeInput);
-                    if (currentIndex < inputs.length - 1) {
-                        inputs[currentIndex + 1].focus();
+                    if (selected) {
+                        e.preventDefault();
+                        const matchText = selected.textContent;
+                        const matchLocation = window.locationData.find(loc => 
+                            `${loc["Room Number"]} - ${loc.Description}` === matchText
+                        );
+                        selectDropdownItem(
+                            { text: matchText, location: matchLocation },
+                            activeInput
+                        );
+                        
+                        const inputs = Array.from(document.querySelectorAll('input[type="text"], textarea'));
+                        const currentIndex = inputs.indexOf(activeInput);
+                        if (currentIndex < inputs.length - 1) {
+                            inputs[currentIndex + 1].focus();
+                        }
                     }
-                }
-                break;
+                    break;
         }
     });
 });
