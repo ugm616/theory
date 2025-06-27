@@ -71,6 +71,46 @@
     .modal-buttons {
       margin-top: 1em; display: flex; gap: .5em; justify-content: flex-end;
     }
+    /* Location Finder Modal Styles */
+    .location-finder-modal .modal-box {
+      width: 600px; max-width: 95%;
+    }
+    .location-search-input {
+      width: 100%; padding: .5em; margin-bottom: 1em;
+      border: 1px solid var(--border); border-radius: 4px;
+      background: var(--input-bg); color: var(--input-fg);
+      font-size: 1em;
+    }
+    .location-results {
+      max-height: 400px; overflow-y: auto;
+      border: 1px solid var(--border); border-radius: 4px;
+      background: var(--input-bg);
+    }
+    .location-item {
+      padding: .75em; border-bottom: 1px solid var(--border);
+      cursor: pointer; transition: background-color .2s;
+    }
+    .location-item:last-child { border-bottom: none; }
+    .location-item:hover {
+      background: var(--accent); color: var(--btn-fg);
+    }
+    .location-item-main {
+      font-weight: bold; margin-bottom: .25em;
+    }
+    .location-item-details {
+      font-size: .9em; opacity: .8;
+    }
+    .find-location-btn {
+      background: var(--accent); color: var(--btn-fg);
+      border: none; border-radius: 4px; padding: .3em .6em;
+      cursor: pointer; font-size: .85em; margin-left: .5em;
+    }
+    .location-input-group {
+      display: flex; align-items: center;
+    }
+    .location-input-group input {
+      flex: 1; margin-right: .5em;
+    }
     #jobForm {
       display: grid; grid-template-columns: 1fr 1fr; gap: 1em;
       background: var(--panel-bg); border: 1px solid var(--border);
@@ -179,13 +219,19 @@
             <input list="deptList" id="fromDept" required placeholder="Department">
           </label>
           <label>From Location:
-            <input list="fromLocList" id="fromLoc" required placeholder="Room…">
+            <div class="location-input-group">
+              <input list="fromLocList" id="fromLoc" required placeholder="Room…">
+              <button type="button" class="find-location-btn" data-target="from">Find</button>
+            </div>
           </label>
           <label>To Dept:
             <input list="deptList" id="toDept" placeholder="Department">
           </label>
           <label>To Location:
-            <input list="toLocList" id="toLoc" placeholder="Room…">
+            <div class="location-input-group">
+              <input list="toLocList" id="toLoc" placeholder="Room…">
+              <button type="button" class="find-location-btn" data-target="to">Find</button>
+            </div>
           </label>
         </fieldset>
         <fieldset>
@@ -309,11 +355,29 @@
     </div>
   </div>
 
+  <!-- Location Finder Modal -->
+  <div id="locationFinderOverlay" class="modal-overlay location-finder-modal" style="display:none;">
+    <div class="modal-box">
+      <h2>Find Location</h2>
+      <input type="text" id="locationSearchInput" class="location-search-input" 
+             placeholder="Search by site, building, department, description, room number, or floor...">
+      <div id="locationResults" class="location-results">
+        <div class="location-item" style="text-align: center; padding: 2em; opacity: 0.6;">
+          Type to search locations...
+        </div>
+      </div>
+      <div class="modal-buttons">
+        <button type="button" id="cancelLocationFinderBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Datalists -->
   <datalist id="deptList"></datalist>
   <datalist id="fromLocList"></datalist>
   <datalist id="toLocList"></datalist>
   <datalist id="catList"></datalist>
+  <script src="locations/locations-data.js"></script>
   <script src="js/locations.js"></script>
   <script src="js/categories.js"></script>
   <script>
@@ -629,6 +693,122 @@
       renderJobs();
       assignOverlay.style.display = 'none';
     };
+
+    // ─── Location Finder Modal Logic ─────────────────────────────────────
+    let currentLocationTarget = null;
+    const locationFinderOverlay = document.getElementById('locationFinderOverlay'),
+          locationSearchInput = document.getElementById('locationSearchInput'),
+          locationResults = document.getElementById('locationResults'),
+          cancelLocationFinder = document.getElementById('cancelLocationFinderBtn');
+
+    // Close modal
+    cancelLocationFinder.onclick = () => locationFinderOverlay.style.display = 'none';
+
+    // Open location finder modal
+    function openLocationFinder(target) {
+      currentLocationTarget = target;
+      locationSearchInput.value = '';
+      showDefaultLocationMessage();
+      locationFinderOverlay.style.display = 'flex';
+      setTimeout(() => locationSearchInput.focus(), 100);
+    }
+
+    // Show default message
+    function showDefaultLocationMessage() {
+      locationResults.innerHTML = `
+        <div class="location-item" style="text-align: center; padding: 2em; opacity: 0.6;">
+          Type to search locations...
+        </div>
+      `;
+    }
+
+    // Search locations
+    function searchLocations(searchTerm) {
+      if (!searchTerm.trim()) {
+        showDefaultLocationMessage();
+        return;
+      }
+
+      const locations = window.LOCATION_DATA || [];
+      const term = searchTerm.toLowerCase();
+      
+      const matches = locations.filter(location => {
+        return (
+          (location.Site && location.Site.toLowerCase().includes(term)) ||
+          (location.Building && location.Building.toLowerCase().includes(term)) ||
+          (location.Department && location.Department.toLowerCase().includes(term)) ||
+          (location.Description && location.Description.toLowerCase().includes(term)) ||
+          (location['Room Number'] && location['Room Number'].toLowerCase().includes(term)) ||
+          (location.Floor && location.Floor.toLowerCase().includes(term))
+        );
+      });
+
+      displayLocationResults(matches);
+    }
+
+    // Display search results
+    function displayLocationResults(matches) {
+      if (matches.length === 0) {
+        locationResults.innerHTML = `
+          <div class="location-item" style="text-align: center; padding: 2em; opacity: 0.6;">
+            No locations found
+          </div>
+        `;
+        return;
+      }
+
+      const html = matches.slice(0, 100).map(location => `
+        <div class="location-item" data-location='${JSON.stringify(location).replace(/'/g, "&#39;")}'>
+          <div class="location-item-main">
+            ${location['Room Number']} - ${location.Description || 'No description'}
+          </div>
+          <div class="location-item-details">
+            ${location.Site} | ${location.Building} | ${location.Department} | Floor: ${location.Floor}
+          </div>
+        </div>
+      `).join('');
+
+      locationResults.innerHTML = html;
+
+      // Add click handlers
+      locationResults.querySelectorAll('.location-item').forEach(item => {
+        item.onclick = () => selectLocation(JSON.parse(item.dataset.location));
+      });
+    }
+
+    // Select a location
+    function selectLocation(location) {
+      if (!currentLocationTarget) return;
+
+      const deptInput = document.getElementById(currentLocationTarget === 'from' ? 'fromDept' : 'toDept');
+      const locInput = document.getElementById(currentLocationTarget === 'from' ? 'fromLoc' : 'toLoc');
+
+      // Set department
+      if (location.Department) {
+        deptInput.value = location.Department;
+        // Trigger input event to update the datalist
+        deptInput.dispatchEvent(new Event('input'));
+      }
+
+      // Set location
+      const locationLabel = location.Description 
+        ? `${location['Room Number']} – ${location.Description}`
+        : location['Room Number'];
+      locInput.value = locationLabel;
+
+      // Close modal
+      locationFinderOverlay.style.display = 'none';
+    }
+
+    // Search input handler
+    locationSearchInput.oninput = (e) => {
+      searchLocations(e.target.value);
+    };
+
+    // Find location button handlers
+    document.querySelectorAll('.find-location-btn').forEach(btn => {
+      btn.onclick = () => openLocationFinder(btn.dataset.target);
+    });
 
     // initial
     renderJobs();
