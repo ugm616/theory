@@ -162,6 +162,7 @@
     <header>
       <img src="proofoflogo.png" alt="Proof OF Logo" id="logo">
       <div>
+        <button id="locationFinderBtn">Location Finder</button>
         <button id="clearJobsBtn" disabled>Clear Tasks</button>
         <button id="themeToggle">☾ Dark Mode</button>
       </div>
@@ -282,6 +283,25 @@
         <div class="modal-buttons">
           <button type="submit">Save Edits</button>
           <button type="button" id="cancelEditBtn">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Location Finder modal -->
+  <div id="locationFinderOverlay" class="modal-overlay" style="display:none;">
+    <div class="modal-box">
+      <h2>Location Finder</h2>
+      <form id="locationFinderForm">
+        <label>Search:
+          <input type="text" id="locationSearch" placeholder="Type to search departments and rooms...">
+        </label>
+        <div id="locationResults" style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: 4px; margin-top: 10px;">
+          <div style="padding: 10px; text-align: center; color: #666;">Start typing to search locations...</div>
+        </div>
+        <div class="modal-buttons">
+          <button type="button" id="useLocationBtn" disabled>Use Location</button>
+          <button type="button" id="cancelLocationFinderBtn">Cancel</button>
         </div>
       </form>
     </div>
@@ -629,6 +649,147 @@
       renderJobs();
       assignOverlay.style.display = 'none';
     };
+
+    // ─── Location Finder Modal Logic ──────────────────────────────────
+    const locationFinderOverlay = document.getElementById('locationFinderOverlay'),
+          locationFinderForm = document.getElementById('locationFinderForm'),
+          locationSearch = document.getElementById('locationSearch'),
+          locationResults = document.getElementById('locationResults'),
+          useLocationBtn = document.getElementById('useLocationBtn'),
+          cancelLocationFinderBtn = document.getElementById('cancelLocationFinderBtn'),
+          locationFinderBtn = document.getElementById('locationFinderBtn');
+
+    let selectedLocation = null;
+    let currentTargetField = null;
+
+    // Open location finder modal
+    locationFinderBtn.onclick = () => {
+      locationFinderOverlay.style.display = 'flex';
+      locationSearch.value = '';
+      locationSearch.focus();
+      selectedLocation = null;
+      useLocationBtn.disabled = true;
+      locationResults.innerHTML = '<div style="padding: 10px; text-align: center; color: #666;">Start typing to search locations...</div>';
+    };
+
+    // Close location finder modal
+    cancelLocationFinderBtn.onclick = () => {
+      locationFinderOverlay.style.display = 'none';
+      selectedLocation = null;
+      currentTargetField = null;
+    };
+
+    // Search functionality
+    locationSearch.oninput = () => {
+      const searchTerm = locationSearch.value.trim().toLowerCase();
+      
+      if (!searchTerm || searchTerm.length < 2) {
+        locationResults.innerHTML = '<div style="padding: 10px; text-align: center; color: #666;">Type at least 2 characters to search...</div>';
+        selectedLocation = null;
+        useLocationBtn.disabled = true;
+        return;
+      }
+
+      if (!Array.isArray(window.LOCATIONS)) {
+        locationResults.innerHTML = '<div style="padding: 10px; text-align: center; color: #666;">No location data available.</div>';
+        return;
+      }
+
+      const matches = window.LOCATIONS.filter(loc => {
+        const dept = (loc.Department || '').toLowerCase();
+        const room = (loc['Room Number'] || '').toLowerCase();
+        const desc = (loc.Description || '').toLowerCase();
+        const building = (loc.Building || '').toLowerCase();
+        const site = (loc.Site || '').toLowerCase();
+        
+        return dept.includes(searchTerm) || 
+               room.includes(searchTerm) || 
+               desc.includes(searchTerm) ||
+               building.includes(searchTerm) ||
+               site.includes(searchTerm);
+      }).slice(0, 50); // Limit results
+
+      if (matches.length === 0) {
+        locationResults.innerHTML = '<div style="padding: 10px; text-align: center; color: #666;">No locations found.</div>';
+        selectedLocation = null;
+        useLocationBtn.disabled = true;
+        return;
+      }
+
+      let html = '';
+      matches.forEach((loc, index) => {
+        const dept = loc.Department || '';
+        const room = loc['Room Number'] || '';
+        const desc = loc.Description || '';
+        const building = loc.Building || '';
+        const site = loc.Site || '';
+        
+        html += `
+          <div class="location-item" data-index="${index}" style="padding: 8px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background-color 0.2s;">
+            <div style="font-weight: bold;">${dept}</div>
+            <div style="font-size: 0.9em; color: #666;">${room} - ${desc}</div>
+            <div style="font-size: 0.8em; color: #888;">${site} - ${building}</div>
+          </div>
+        `;
+      });
+
+      locationResults.innerHTML = html;
+
+      // Add click handlers to location items
+      document.querySelectorAll('.location-item').forEach((item, index) => {
+        item.onclick = () => {
+          // Remove previous selection
+          document.querySelectorAll('.location-item').forEach(i => i.style.backgroundColor = '');
+          
+          // Highlight selected item
+          item.style.backgroundColor = 'var(--accent)';
+          item.style.color = 'white';
+          
+          selectedLocation = matches[index];
+          useLocationBtn.disabled = false;
+        };
+
+        // Add hover effect
+        item.onmouseover = () => {
+          if (selectedLocation !== matches[index]) {
+            item.style.backgroundColor = 'var(--panel-bg)';
+          }
+        };
+
+        item.onmouseout = () => {
+          if (selectedLocation !== matches[index]) {
+            item.style.backgroundColor = '';
+          }
+        };
+      });
+    };
+
+    // Use selected location
+    useLocationBtn.onclick = () => {
+      if (!selectedLocation) return;
+
+      // For now, we'll populate the "From" fields as an example
+      // In a more sophisticated implementation, we could let the user choose which fields to populate
+      const fromDeptField = document.getElementById('fromDept');
+      const fromLocField = document.getElementById('fromLoc');
+
+      if (fromDeptField && fromLocField) {
+        fromDeptField.value = selectedLocation.Department || '';
+        fromLocField.value = (selectedLocation['Room Number'] || '') + 
+                            (selectedLocation.Description ? ' – ' + selectedLocation.Description : '');
+        
+        // Trigger the input events to update datalists
+        fromDeptField.dispatchEvent(new Event('input'));
+        fromLocField.dispatchEvent(new Event('input'));
+      }
+
+      // Close the modal
+      locationFinderOverlay.style.display = 'none';
+      selectedLocation = null;
+    };
+
+    // Prevent form submission
+    locationFinderForm.onsubmit = e => e.preventDefault();
 
     // initial
     renderJobs();
